@@ -54,7 +54,7 @@ pub trait BigEndianReadExt: io::Read {
         self::ReadBytesExt::read_u16::<BigEndian>(self)
     }
 
-    /// Reads an unsigned 16 bit integer from the underlying reader.
+    /// Reads an unsigned 32 bit integer from the underlying reader.
     ///
     /// # Errors
     ///
@@ -64,6 +64,42 @@ pub trait BigEndianReadExt: io::Read {
     #[inline]
     fn read_u32(&mut self) -> Result<u32> {
         self::ReadBytesExt::read_u32::<BigEndian>(self)
+    }
+
+    /// Reads an unsigned 64 bit integer from the underlying reader.
+    ///
+    /// # Errors
+    ///
+    /// This method returns the same errors as [`Read::read_exact`].
+    ///
+    /// [`Read::read_exact`]: https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact
+    #[inline]
+    fn read_u64(&mut self) -> Result<u64> {
+        self::ReadBytesExt::read_u64::<BigEndian>(self)
+    }
+
+    /// Reads a 32 bit float from the underlying reader.
+    ///
+    /// # Errors
+    ///
+    /// This method returns the same errors as [`Read::read_exact`].
+    ///
+    /// [`Read::read_exact`]: https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact
+    #[inline]
+    fn read_f32(&mut self) -> Result<f32> {
+        self::ReadBytesExt::read_f32::<BigEndian>(self)
+    }
+
+    /// Reads a 64 bit float from the underlying reader.
+    ///
+    /// # Errors
+    ///
+    /// This method returns the same errors as [`Read::read_exact`].
+    ///
+    /// [`Read::read_exact`]: https://doc.rust-lang.org/std/io/trait.Read.html#method.read_exact
+    #[inline]
+    fn read_f64(&mut self) -> Result<f64> {
+        self::ReadBytesExt::read_f64::<BigEndian>(self)
     }
 }
 

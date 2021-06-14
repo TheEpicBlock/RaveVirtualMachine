@@ -3,8 +3,10 @@ use std::error::Error;
 use std::io::{Cursor, Read};
 use crate::byte_util::BigEndianReadExt;
 use std::iter::Zip;
+use std::string::FromUtf8Error;
 
 mod parsing;
+mod constantpool;
 
 /// A class goes through multiple stages before being used. This enum keeps track of them
 pub enum Stage {
@@ -15,7 +17,9 @@ pub enum Stage {
 pub enum ParseError {
     /// The wrong magic value was found. The value here is what was found instead
     WrongMagic(u32),
-    IoError(std::io::Error)
+    IoError(std::io::Error),
+    InvalidConstantTableEntry(u8),
+    Utf8Error(FromUtf8Error)
 }
 
 impl fmt::Display for ParseError {
@@ -25,7 +29,13 @@ impl fmt::Display for ParseError {
                 write!(fmt, "Wrong magic, found {} instead", x)
             }
             ParseError::IoError(x) => {
-                write!(fmt, "Io error")
+                write!(fmt, "Io error: {}", x)
+            }
+            ParseError::InvalidConstantTableEntry(x) => {
+                write!(fmt, "Encountered invalid type id {} in constant table", x)
+            }
+            ParseError::Utf8Error(x) => {
+                write!(fmt, "Encountered invalid utf8: {}", x)
             }
         }
     }
@@ -35,6 +45,9 @@ impl Error for ParseError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             ParseError::IoError(inner) => {
+                Some(inner)
+            }
+            ParseError::Utf8Error(inner) => {
                 Some(inner)
             }
             _ => {
@@ -47,6 +60,12 @@ impl Error for ParseError {
 impl From<std::io::Error> for ParseError {
     fn from(err: std::io::Error) -> Self {
         ParseError::IoError(err)
+    }
+}
+
+impl From<FromUtf8Error> for ParseError {
+    fn from(err: FromUtf8Error) -> Self {
+        ParseError::Utf8Error(err)
     }
 }
 

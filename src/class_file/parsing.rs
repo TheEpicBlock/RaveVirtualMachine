@@ -2,7 +2,9 @@ use std::io::{Cursor, Read};
 
 use crate::class_file::{ParseError, ByteParseable};
 use crate::byte_util::BigEndianReadExt;
+use crate::class_file::constantpool::ConstantPoolInfo;
 
+#[derive(Debug)]
 pub struct ParsedClass {
     pub minor_version: u16,
     pub major_version: u16,
@@ -16,30 +18,24 @@ pub struct ParsedClass {
     pub attributes: Vec<AttributeInfo>
 }
 
-pub struct ConstantPoolInfo {
-
-}
-
+#[derive(Debug)]
 pub struct InterfaceInfo {
 
 }
 
+#[derive(Debug)]
 pub struct FieldInfo {
 
 }
 
+#[derive(Debug)]
 pub struct MethodInfo {
 
 }
 
+#[derive(Debug)]
 pub struct AttributeInfo {
 
-}
-
-impl ByteParseable for ConstantPoolInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
-        todo!()
-    }
 }
 
 impl ByteParseable for InterfaceInfo {
@@ -88,3 +84,39 @@ impl ByteParseable for ParsedClass {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::class_file::parsing::ParsedClass;
+    use crate::class_file::{ByteParseable, ParseError};
+
+    #[test]
+    #[should_panic]
+    fn invalid_file() {
+        let bytes = &[0x00, 0x13, 0x67];
+        ParsedClass::parse_bytes(bytes).unwrap();
+    }
+
+    #[test]
+    fn test_magic() {
+        let bytes = &[0x00, 0x00, 0x00, 0x00]; // 0x0000 != 0xCAFEBABE
+        let result = ParsedClass::parse_bytes(bytes);
+        match result {
+            Ok(x) => {
+                panic!("Expected an error but result was ok: {:?}",x)
+            }
+            Err(inner) => {
+                match inner {
+                    ParseError::WrongMagic(0x00000000) => {
+                        // Correct result
+                    }
+                    ParseError::WrongMagic(x) => {
+                        panic!("Expected 0x00000000 but found: {}", x)
+                    }
+                    x => {
+                        panic!("Expected a wrong magic error but found: {}", x)
+                    }
+                }
+            }
+        }
+    }
+}
