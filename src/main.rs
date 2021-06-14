@@ -1,8 +1,8 @@
-use clap::{App, SubCommand, Arg};
 use std::fs::File;
-use std::path::Path;
 use std::io::BufReader;
-use crate::class_file::ParseError;
+use std::path::Path;
+
+use clap::{App, Arg, SubCommand};
 
 pub mod class_file;
 mod byte_util;

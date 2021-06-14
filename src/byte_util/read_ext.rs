@@ -5,8 +5,6 @@ use std::prelude::v1;
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
 
-use crate::class_file::ParseError;
-
 /// Extends [`Read`] with methods for reading numbers. (For `std::io`.)
 ///
 /// All of these methods are explicitly big endian
@@ -111,7 +109,6 @@ mod tests {
     use std::io::{Cursor, Read};
 
     use super::BigEndianReadExt;
-    use crate::class_file::ParseError;
 
     #[test]
     fn read_u8() {

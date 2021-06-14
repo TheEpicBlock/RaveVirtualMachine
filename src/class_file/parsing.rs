@@ -1,8 +1,8 @@
 use std::io::{Cursor, Read};
 
-use crate::class_file::{ParseError, ByteParseable};
-use crate::byte_util::{BigEndianReadExt, read_to_vec};
+use crate::byte_util::{BigEndianReadExt, read_to_vec, ParseError};
 use crate::class_file::constantpool::ConstantPoolInfo;
+use crate::byte_util::ByteParseable;
 
 #[derive(Debug)]
 pub struct ParsedClass {
@@ -118,9 +118,8 @@ fn parse_constant_pool<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>
 #[cfg(test)]
 mod tests {
     use crate::class_file::parsing::{ParsedClass, parse_default_array};
-    use crate::class_file::{ByteParseable, ParseError};
     use std::io::{Cursor, Read, Seek};
-    use crate::byte_util::BigEndianReadExt;
+    use crate::byte_util::{BigEndianReadExt, ByteParseable, ParseError};
 
     #[test]
     #[should_panic]

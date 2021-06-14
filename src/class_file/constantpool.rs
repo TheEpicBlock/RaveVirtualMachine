@@ -1,6 +1,5 @@
-use crate::class_file::{ByteParseable, ParseError};
 use std::io::Read;
-use crate::byte_util::{BigEndianReadExt, read_to_vec};
+use crate::byte_util::{BigEndianReadExt, read_to_vec, ByteParseable, ParseError};
 use crate::class_file::constantpool::ConstantPoolInfo::Class;
 
 /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
