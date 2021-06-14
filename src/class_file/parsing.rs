@@ -72,21 +72,32 @@ impl ByteParseable for ParsedClass {
         return Ok(ParsedClass {
             minor_version: bytes.read_u16()?,
             major_version: bytes.read_u16()?,
-            constant_pool: Vec::parse(bytes)?,
+            constant_pool: parse_constant_pool(bytes)?, // The number here is one larger than you'd expect
             access_flags: bytes.read_u16()?,
             this_class: bytes.read_u16()?,
             super_class: bytes.read_u16()?,
-            interfaces: Vec::parse(bytes)?,
-            fields: Vec::parse(bytes)?,
-            methods: Vec::parse(bytes)?,
-            attributes: Vec::parse(bytes)?
+            interfaces: parse_default_array(bytes)?,
+            fields: parse_default_array(bytes)?,
+            methods: parse_default_array(bytes)?,
+            attributes: parse_default_array(bytes)?
         })
     }
 }
 
+/// Parses an array of parseables where the first u16 is the size
+fn parse_default_array<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+    let size = bytes.read_u16()? as usize;
+    T::parse_array(bytes, size)
+}
+
+fn parse_constant_pool<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+    let size = bytes.read_u16()? as usize - 1;
+    T::parse_array(bytes, size)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::class_file::parsing::ParsedClass;
+    use crate::class_file::parsing::{ParsedClass, parse_default_array};
     use crate::class_file::{ByteParseable, ParseError};
     use std::io::{Cursor, Read, Seek};
     use crate::byte_util::BigEndianReadExt;
@@ -120,5 +131,28 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[derive(Eq, PartialEq, Debug)]
+    struct Test(u8);
+
+    impl ByteParseable for Test {
+        fn parse(bytes: &mut impl Read) -> Result<Self, ParseError> where Self: Sized {
+            Ok(Test(bytes.read_u8()?))
+        }
+    }
+
+    #[test]
+    fn test_array_parse() {
+        let bytes = vec![1,2,3,5,8];
+        let mut tests = Vec::with_capacity(bytes.len());
+        for i in &bytes { tests.push(Test(*i)); }
+
+        let mut byte_vector = vec![0, bytes.len() as u8];
+        byte_vector.append(&mut bytes.clone());
+        println!("{}", byte_vector.len());
+
+        //tests is now an original list of numbers. And byte_vector is the same but with the length appended at the front as a u16.
+        assert_eq!(tests, parse_default_array(&mut Cursor::new(byte_vector)).unwrap())
     }
 }

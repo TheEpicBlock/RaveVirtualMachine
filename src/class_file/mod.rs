@@ -79,37 +79,39 @@ pub trait ByteParseable {
         return Self::parse(&mut Cursor::new(bytes));
     }
 
-    fn parse(bytes: &mut impl Read) -> Result<Self, ParseError> where Self: Sized ;
-}
+    fn parse(bytes: &mut impl Read) -> Result<Self, ParseError> where Self: Sized;
 
-impl<T: ByteParseable> ByteParseable for Vec<T>{
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
-        let total = bytes.read_u16()? as usize;
-        let mut res: Vec<T> = Vec::with_capacity(total);
-        for _ in 0..total {
-            res.push(T::parse(bytes)?);
+    fn parse_array(bytes: &mut impl Read, amount: usize) -> Result<Vec<Self>, ParseError> where Self: Sized {
+        let mut res = Vec::with_capacity(amount);
+        for _ in 0..amount {
+            res.push(Self::parse(bytes)?);
         }
         return Ok(res);
     }
 }
 
+#[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::class_file::{ByteParseable, ParseError};
+    use std::io::{Read, Cursor};
+    use crate::byte_util::BigEndianReadExt;
 
-    impl ByteParseable for u8 {
+    #[derive(Eq, PartialEq, Debug)]
+    struct Test(u8);
+
+    impl ByteParseable for Test {
         fn parse(bytes: &mut impl Read) -> Result<Self, ParseError> where Self: Sized {
-            Ok(bytes.read_u8()?)
+            Ok(Test(bytes.read_u8()?))
         }
     }
 
     #[test]
     fn vector_byte_parse() {
-        let vector: Vec<u8> = vec![1,2,3,5,8];
-        let mut byte_vector = vec![0, vector.len() as u8];
-        byte_vector.append(&mut vector.clone());
-        println!("{}", byte_vector.len());
+        let bytes = vec![1,2,3,5,8];
+        let mut tests = Vec::with_capacity(bytes.len());
+        for i in &bytes { tests.push(Test(*i)); }
 
         //Vector is now out original list of numbers. And byte_vector is the same but with the length appended at the front as a u16.
-        assert_eq!(vector, Vec::parse(&mut Cursor::new(byte_vector)).unwrap())
+        assert_eq!(tests, Test::parse_array(&mut Cursor::new(bytes), tests.len()).unwrap())
     }
 }
