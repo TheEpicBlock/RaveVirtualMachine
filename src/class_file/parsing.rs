@@ -88,6 +88,8 @@ impl ByteParseable for ParsedClass {
 mod tests {
     use crate::class_file::parsing::ParsedClass;
     use crate::class_file::{ByteParseable, ParseError};
+    use std::io::{Cursor, Read, Seek};
+    use crate::byte_util::BigEndianReadExt;
 
     #[test]
     #[should_panic]

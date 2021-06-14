@@ -4,9 +4,14 @@ use std::io::{Cursor, Read};
 use crate::byte_util::BigEndianReadExt;
 use std::iter::Zip;
 use std::string::FromUtf8Error;
+use crate::class_file::parsing::ParsedClass;
 
 mod parsing;
 mod constantpool;
+
+pub fn parse(bytes: &mut impl Read) -> Result<ParsedClass, ParseError> {
+    ParsedClass::parse(bytes)
+}
 
 /// A class goes through multiple stages before being used. This enum keeps track of them
 pub enum Stage {

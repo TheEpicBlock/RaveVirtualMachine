@@ -1,6 +1,6 @@
 use crate::class_file::{ByteParseable, ParseError};
 use std::io::Read;
-use crate::byte_util::BigEndianReadExt;
+use crate::byte_util::{BigEndianReadExt, read_to_vec};
 use crate::class_file::constantpool::ConstantPoolInfo::Class;
 
 /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
@@ -61,8 +61,7 @@ impl ByteParseable for ConstantPoolInfo {
             }
             1 => {
                 let len = bytes.read_u16()?;
-                let mut vec: Vec<u8> = Vec::with_capacity(len as usize);
-                bytes.read_exact(&mut vec);
+                let vec = read_to_vec(bytes, len as usize)?;
                 // TODO doesn't respect custom string format
                 Ok(ConstantPoolInfo::Utf8Info(String::from_utf8(vec)?))
             }

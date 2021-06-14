@@ -106,7 +106,7 @@ pub trait BigEndianReadExt: io::Read {
 impl<R: io::Read + ?Sized> BigEndianReadExt for R {}
 
 
-
+#[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
 
