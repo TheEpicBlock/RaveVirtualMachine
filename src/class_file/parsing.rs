@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read};
 
 use crate::class_file::{ParseError, ByteParseable};
-use crate::byte_util::BigEndianReadExt;
+use crate::byte_util::{BigEndianReadExt, read_to_vec};
 use crate::class_file::constantpool::ConstantPoolInfo;
 
 #[derive(Debug)]
@@ -30,12 +30,16 @@ pub struct FieldInfo {
 
 #[derive(Debug)]
 pub struct MethodInfo {
-
+    pub access_flags: u16,
+    pub name_index: u16,
+    pub descriptor_index: u16,
+    pub attributes: Vec<AttributeInfo>
 }
 
 #[derive(Debug)]
 pub struct AttributeInfo {
-
+    pub name_index: u16,
+    pub attribute: Vec<u8>
 }
 
 impl ByteParseable for InterfaceInfo {
@@ -52,13 +56,24 @@ impl ByteParseable for FieldInfo {
 
 impl ByteParseable for MethodInfo {
     fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
-        todo!()
+        return Ok(MethodInfo {
+            access_flags: bytes.read_u16()?,
+            name_index: bytes.read_u16()?,
+            descriptor_index: bytes.read_u16()?,
+            attributes: parse_default_array(bytes)?
+        })
     }
 }
 
 impl ByteParseable for AttributeInfo {
     fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
-        todo!()
+        let name_index = bytes.read_u16()?;
+        let attribute_length = bytes.read_u32()? as usize;
+
+        return Ok(AttributeInfo {
+            name_index,
+            attribute: read_to_vec(bytes, attribute_length)?
+        });
     }
 }
 
@@ -87,6 +102,11 @@ impl ByteParseable for ParsedClass {
 /// Parses an array of parseables where the first u16 is the size
 fn parse_default_array<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
     let size = bytes.read_u16()? as usize;
+    T::parse_array(bytes, size)
+}
+
+fn parse_array_u32<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+    let size = bytes.read_u32()? as usize;
     T::parse_array(bytes, size)
 }
 

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::io::BufReader;
 use crate::class_file::ParseError;
 
-mod class_file;
+pub mod class_file;
 mod byte_util;
 
 fn main() {
