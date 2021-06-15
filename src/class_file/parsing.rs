@@ -1,8 +1,22 @@
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Error};
 
-use crate::byte_util::{BigEndianReadExt, read_to_vec, ParseError};
+use crate::byte_util::{BigEndianReadExt, read_to_vec};
 use crate::class_file::constantpool::ConstantPoolInfo;
 use crate::byte_util::ByteParseable;
+use thiserror::Error;
+use std::string::FromUtf8Error;
+
+#[derive(Error, Debug)]
+pub enum ClassParseError {
+    #[error("Wrong magic value found in class file: {0}")]
+    WrongMagic(u32),
+    #[error("Invalid contant table entry: {0}")]
+    InvalidConstantTableEntry(u8),
+    #[error("Io Error: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("Utf8 parsing error: {0}")]
+    Utf8Error(#[from] FromUtf8Error)
+}
 
 #[derive(Debug)]
 pub struct ParsedClass {
@@ -42,20 +56,20 @@ pub struct AttributeInfo {
     pub attribute: Vec<u8>
 }
 
-impl ByteParseable for InterfaceInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for InterfaceInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         todo!()
     }
 }
 
-impl ByteParseable for FieldInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for FieldInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         todo!()
     }
 }
 
-impl ByteParseable for MethodInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for MethodInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         return Ok(MethodInfo {
             access_flags: bytes.read_u16()?,
             name_index: bytes.read_u16()?,
@@ -65,8 +79,8 @@ impl ByteParseable for MethodInfo {
     }
 }
 
-impl ByteParseable for AttributeInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for AttributeInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         let name_index = bytes.read_u16()?;
         let attribute_length = bytes.read_u32()? as usize;
 
@@ -77,11 +91,11 @@ impl ByteParseable for AttributeInfo {
     }
 }
 
-impl ByteParseable for ParsedClass {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for ParsedClass {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         let magic = bytes.read_u32()?;
         if magic != 0xCAFEBABE {
-            return Err(ParseError::WrongMagic(magic));
+            return Err(ClassParseError::WrongMagic(magic));
         }
 
         return Ok(ParsedClass {
@@ -100,26 +114,26 @@ impl ByteParseable for ParsedClass {
 }
 
 /// Parses an array of parseables where the first u16 is the size
-fn parse_default_array<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+fn parse_default_array<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read) -> Result<Vec<T>, ERR> {
     let size = bytes.read_u16()? as usize;
     T::parse_array(bytes, size)
 }
 
-fn parse_array_u32<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+fn parse_array_u32<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read) -> Result<Vec<T>, ERR> {
     let size = bytes.read_u32()? as usize;
     T::parse_array(bytes, size)
 }
 
-fn parse_constant_pool<T: ByteParseable>(bytes: &mut impl Read) -> Result<Vec<T>, ParseError> {
+fn parse_constant_pool<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read) -> Result<Vec<T>, ERR> {
     let size = bytes.read_u16()? as usize - 1;
     T::parse_array(bytes, size)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::class_file::parsing::{ParsedClass, parse_default_array};
+    use crate::class_file::parsing::{ParsedClass, parse_default_array, ClassParseError};
     use std::io::{Cursor, Read, Seek};
-    use crate::byte_util::{BigEndianReadExt, ByteParseable, ParseError};
+    use crate::byte_util::{BigEndianReadExt, ByteParseable};
 
     #[test]
     #[should_panic]
@@ -138,10 +152,10 @@ mod tests {
             }
             Err(inner) => {
                 match inner {
-                    ParseError::WrongMagic(0x00000000) => {
+                    ClassParseError::WrongMagic(0x00000000) => {
                         // Correct result
                     }
-                    ParseError::WrongMagic(x) => {
+                    ClassParseError::WrongMagic(x) => {
                         panic!("Expected 0x00000000 but found: {}", x)
                     }
                     x => {
@@ -155,8 +169,8 @@ mod tests {
     #[derive(Eq, PartialEq, Debug)]
     struct Test(u8);
 
-    impl ByteParseable for Test {
-        fn parse(bytes: &mut impl Read) -> Result<Self, ParseError> where Self: Sized {
+    impl ByteParseable<std::io::Error> for Test {
+        fn parse(bytes: &mut impl Read) -> Result<Self, std::io::Error> where Self: Sized {
             Ok(Test(bytes.read_u8()?))
         }
     }

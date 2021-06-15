@@ -1,6 +1,7 @@
 use std::io::Read;
-use crate::byte_util::{BigEndianReadExt, read_to_vec, ByteParseable, ParseError};
+use crate::byte_util::{BigEndianReadExt, read_to_vec, ByteParseable};
 use crate::class_file::constantpool::ConstantPoolInfo::Class;
+use crate::class_file::parsing::ClassParseError;
 
 /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
 #[derive(Debug)]
@@ -24,8 +25,8 @@ pub enum ConstantPoolInfo {
     PackageInfo(u16),
 }
 
-impl ByteParseable for ConstantPoolInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ParseError> {
+impl ByteParseable<ClassParseError> for ConstantPoolInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         let tag = bytes.read_u8()?;
         match tag {
             7 => {
@@ -83,7 +84,7 @@ impl ByteParseable for ConstantPoolInfo {
                 Ok(ConstantPoolInfo::PackageInfo(bytes.read_u16()?))
             }
             _ => {
-                Err(ParseError::InvalidConstantTableEntry(tag))
+                Err(ClassParseError::InvalidConstantTableEntry(tag))
             }
         }
     }

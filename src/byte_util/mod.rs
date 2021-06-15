@@ -2,7 +2,6 @@ mod read_ext;
 mod parseable;
 
 pub use read_ext::BigEndianReadExt;
-pub use parseable::ParseError;
 pub use parseable::ByteParseable;
 use std::io::Read;
 use std::io;
