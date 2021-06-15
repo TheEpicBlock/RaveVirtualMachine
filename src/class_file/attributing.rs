@@ -1,13 +1,11 @@
 use crate::class_file::constant_pool::ConstantPoolInfo;
-use crate::class_file::{Stage, BasicClass};
 use crate::class_file::parsing::ParsedClass;
+use crate::class_file::{BasicClass, Stage};
 use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum AttributingError {
-
-}
+pub enum AttributingError {}
 
 bitflags! {
     pub struct ClassAccessFlags: u16 {
@@ -53,9 +51,7 @@ struct AttributedClass {
     // pub attributes: Vec<AttributeInfo>
 }
 
-struct AnnotatedMethod {
-
-}
+struct AnnotatedMethod {}
 
 impl BasicClass for AttributedClass {
     fn get_stage() -> Stage {
@@ -73,8 +69,7 @@ impl TryFrom<ParsedClass> for AttributedClass {
             constant_pool: value.constant_pool,
             access_flags: ClassAccessFlags::from_bits_truncate(value.access_flags),
             this_class: value.this_class,
-            super_class: value.super_class
-        })
+            super_class: value.super_class,
+        });
     }
 }
-

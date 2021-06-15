@@ -4,18 +4,18 @@ use std::io::{Cursor, Read};
 use std::iter::Zip;
 
 use crate::byte_util::{BigEndianReadExt, ByteParseable};
-use crate::class_file::parsing::{ParsedClass, ClassParseError};
+use crate::class_file::parsing::{ClassParseError, ParsedClass};
 
-mod parsing;
-mod constant_pool;
 mod attributing;
+mod constant_pool;
+mod parsing;
 
 /// A class goes through multiple stages before being used. This enum keeps track of them
 pub enum Stage {
     /// The raw bytes are now parsed into data structures
     Parsed,
     /// Bytecode and attributes are parsed, together with bitflags
-    Attributed
+    Attributed,
 }
 
 pub trait BasicClass {

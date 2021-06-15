@@ -4,8 +4,8 @@ use std::path::Path;
 
 use clap::{App, Arg, SubCommand};
 
-pub mod class_file;
 mod byte_util;
+pub mod class_file;
 
 #[macro_use]
 extern crate bitflags;
@@ -15,13 +15,15 @@ fn main() {
         .version("1.0.0")
         .author("TheEpicBlock")
         .about("A java virtual machine implementation in rust")
-        .subcommand(SubCommand::with_name("parse")
-            .about("Parses a .class file and prints it. Similar in function to javap")
-            .arg(Arg::with_name("INPUT").required(true).index(1)))
+        .subcommand(
+            SubCommand::with_name("parse")
+                .about("Parses a .class file and prints it. Similar in function to javap")
+                .arg(Arg::with_name("INPUT").required(true).index(1)),
+        )
         .get_matches();
 
     if let Some(subcommand) = cli.subcommand_matches("parse") {
-        let input_path= subcommand.value_of("INPUT").unwrap();
+        let input_path = subcommand.value_of("INPUT").unwrap();
         let input = Path::new(input_path);
 
         if !input.exists() {
@@ -42,7 +44,7 @@ fn main() {
             }
             Err(err) => {
                 println!("Failed to parse file");
-                println!("{}", err);
+                println!("{:?}", err);
             }
         }
     }

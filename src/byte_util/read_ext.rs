@@ -1,5 +1,5 @@
-use std::io::{Cursor, Result, Read};
 use std::io;
+use std::io::{Cursor, Read, Result};
 use std::prelude::v1;
 
 use byteorder::BigEndian;
@@ -103,7 +103,6 @@ pub trait BigEndianReadExt: io::Read {
 
 impl<R: io::Read + ?Sized> BigEndianReadExt for R {}
 
-
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};
@@ -126,6 +125,6 @@ mod tests {
     }
 
     fn testing_cursor() -> Cursor<&'static [u8]> {
-        Cursor::new(&[0x01,0x02,0x03,0x04])
+        Cursor::new(&[0x01, 0x02, 0x03, 0x04])
     }
 }

@@ -1,10 +1,10 @@
-mod read_ext;
 mod parseable;
+mod read_ext;
 
-pub use read_ext::BigEndianReadExt;
 pub use parseable::ByteParseable;
-use std::io::Read;
+pub use read_ext::BigEndianReadExt;
 use std::io;
+use std::io::Read;
 
 /// Reads an amount of bytes to a vector.
 pub fn read_to_vec(buffer: &mut impl Read, amount: usize) -> io::Result<Vec<u8>> {
@@ -16,8 +16,8 @@ pub fn read_to_vec(buffer: &mut impl Read, amount: usize) -> io::Result<Vec<u8>>
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use crate::byte_util::{read_to_vec, BigEndianReadExt};
+    use std::io::Cursor;
 
     #[test]
     fn test_read_to_vec() {

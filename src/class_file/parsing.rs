@@ -1,11 +1,11 @@
-use std::io::{Cursor, Read, Error};
+use std::io::{Cursor, Error, Read};
 
-use crate::byte_util::{BigEndianReadExt, read_to_vec};
-use crate::class_file::constant_pool::ConstantPoolInfo;
 use crate::byte_util::ByteParseable;
-use thiserror::Error;
-use std::string::FromUtf8Error;
+use crate::byte_util::{read_to_vec, BigEndianReadExt};
+use crate::class_file::constant_pool::ConstantPoolInfo;
 use crate::class_file::{BasicClass, Stage};
+use std::string::FromUtf8Error;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ClassParseError {
@@ -16,7 +16,7 @@ pub enum ClassParseError {
     #[error("Io Error: {0}")]
     IoError(#[from] std::io::Error),
     #[error("Utf8 parsing error: {0}")]
-    Utf8Error(#[from] FromUtf8Error)
+    Utf8Error(#[from] FromUtf8Error),
 }
 
 #[derive(Debug)]
@@ -30,7 +30,7 @@ pub struct ParsedClass {
     pub interfaces: Vec<InterfaceInfo>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
-    pub attributes: Vec<AttributeInfo>
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl BasicClass for ParsedClass {
@@ -40,27 +40,23 @@ impl BasicClass for ParsedClass {
 }
 
 #[derive(Debug)]
-pub struct InterfaceInfo {
-
-}
+pub struct InterfaceInfo {}
 
 #[derive(Debug)]
-pub struct FieldInfo {
-
-}
+pub struct FieldInfo {}
 
 #[derive(Debug)]
 pub struct MethodInfo {
     pub access_flags: u16,
     pub name_index: u16,
     pub descriptor_index: u16,
-    pub attributes: Vec<AttributeInfo>
+    pub attributes: Vec<AttributeInfo>,
 }
 
 #[derive(Debug)]
 pub struct AttributeInfo {
     pub name_index: u16,
-    pub attribute: Vec<u8>
+    pub attribute: Vec<u8>,
 }
 
 impl ByteParseable<ClassParseError> for InterfaceInfo {
@@ -81,8 +77,8 @@ impl ByteParseable<ClassParseError> for MethodInfo {
             access_flags: bytes.read_u16()?,
             name_index: bytes.read_u16()?,
             descriptor_index: bytes.read_u16()?,
-            attributes: parse_default_array(bytes)?
-        })
+            attributes: parse_default_array(bytes)?,
+        });
     }
 }
 
@@ -93,7 +89,7 @@ impl ByteParseable<ClassParseError> for AttributeInfo {
 
         return Ok(AttributeInfo {
             name_index,
-            attribute: read_to_vec(bytes, attribute_length)?
+            attribute: read_to_vec(bytes, attribute_length)?,
         });
     }
 }
@@ -115,8 +111,8 @@ impl ByteParseable<ClassParseError> for ParsedClass {
             interfaces: parse_default_array(bytes)?,
             fields: parse_default_array(bytes)?,
             methods: parse_default_array(bytes)?,
-            attributes: parse_default_array(bytes)?
-        })
+            attributes: parse_default_array(bytes)?,
+        });
     }
 }
 
@@ -126,21 +122,21 @@ fn parse_default_array<ERR: std::error::Error + From<Error>, T: ByteParseable<ER
     T::parse_array(bytes, size)
 }
 
-fn parse_array_u32<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read) -> Result<Vec<T>, ERR> {
+fn parse_array_u32<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read, ) -> Result<Vec<T>, ERR> {
     let size = bytes.read_u32()? as usize;
     T::parse_array(bytes, size)
 }
 
-fn parse_constant_pool<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read) -> Result<Vec<T>, ERR> {
+fn parse_constant_pool<ERR: std::error::Error + From<Error>, T: ByteParseable<ERR>>(bytes: &mut impl Read, ) -> Result<Vec<T>, ERR> {
     let size = bytes.read_u16()? as usize - 1;
     T::parse_array(bytes, size)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::class_file::parsing::{ParsedClass, parse_default_array, ClassParseError};
-    use std::io::{Cursor, Read, Seek};
     use crate::byte_util::{BigEndianReadExt, ByteParseable};
+    use crate::class_file::parsing::{parse_default_array, ClassParseError, ParsedClass};
+    use std::io::{Cursor, Read, Seek};
 
     #[test]
     #[should_panic]
@@ -155,7 +151,7 @@ mod tests {
         let result = ParsedClass::parse_bytes(bytes);
         match result {
             Ok(x) => {
-                panic!("Expected an error but result was ok: {:?}",x)
+                panic!("Expected an error but result was ok: {:?}", x)
             }
             Err(inner) => {
                 match inner {
@@ -166,7 +162,7 @@ mod tests {
                         panic!("Expected 0x00000000 but found: {}", x)
                     }
                     x => {
-                        panic!("Expected a wrong magic error but found: {}", x)
+                        panic!("Expected a wrong magic error but found: {:?}", x)
                     }
                 }
             }
@@ -177,22 +173,30 @@ mod tests {
     struct Test(u8);
 
     impl ByteParseable<std::io::Error> for Test {
-        fn parse(bytes: &mut impl Read) -> Result<Self, std::io::Error> where Self: Sized {
+        fn parse(bytes: &mut impl Read) -> Result<Self, std::io::Error>
+        where
+            Self: Sized,
+        {
             Ok(Test(bytes.read_u8()?))
         }
     }
 
     #[test]
     fn test_array_parse() {
-        let bytes = vec![1,2,3,5,8];
+        let bytes = vec![1, 2, 3, 5, 8];
         let mut tests = Vec::with_capacity(bytes.len());
-        for i in &bytes { tests.push(Test(*i)); }
+        for i in &bytes {
+            tests.push(Test(*i));
+        }
 
         let mut byte_vector = vec![0, bytes.len() as u8];
         byte_vector.append(&mut bytes.clone());
         println!("{}", byte_vector.len());
 
         //tests is now an original list of numbers. And byte_vector is the same but with the length appended at the front as a u16.
-        assert_eq!(tests, parse_default_array(&mut Cursor::new(byte_vector)).unwrap())
+        assert_eq!(
+            tests,
+            parse_default_array(&mut Cursor::new(byte_vector)).unwrap()
+        )
     }
 }
