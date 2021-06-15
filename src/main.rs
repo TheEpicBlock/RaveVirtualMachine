@@ -7,6 +7,9 @@ use clap::{App, Arg, SubCommand};
 pub mod class_file;
 mod byte_util;
 
+#[macro_use]
+extern crate bitflags;
+
 fn main() {
     let cli = App::new("Rave Virtual Machine")
         .version("1.0.0")

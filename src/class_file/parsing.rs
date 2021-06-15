@@ -1,10 +1,11 @@
 use std::io::{Cursor, Read, Error};
 
 use crate::byte_util::{BigEndianReadExt, read_to_vec};
-use crate::class_file::constantpool::ConstantPoolInfo;
+use crate::class_file::constant_pool::ConstantPoolInfo;
 use crate::byte_util::ByteParseable;
 use thiserror::Error;
 use std::string::FromUtf8Error;
+use crate::class_file::{BasicClass, Stage};
 
 #[derive(Error, Debug)]
 pub enum ClassParseError {
@@ -30,6 +31,12 @@ pub struct ParsedClass {
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
     pub attributes: Vec<AttributeInfo>
+}
+
+impl BasicClass for ParsedClass {
+    fn get_stage() -> Stage {
+        Stage::Parsed
+    }
 }
 
 #[derive(Debug)]

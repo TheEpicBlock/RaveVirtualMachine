@@ -84,6 +84,7 @@ dependencies = [
 name = "rave-virtual-machine"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "byteorder",
  "clap",
  "thiserror",
