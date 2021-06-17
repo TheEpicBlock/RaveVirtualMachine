@@ -60,7 +60,7 @@ pub struct AttributeInfo {
 }
 
 impl AttributeInfo {
-    fn get_reader(self) -> impl Read {
+    pub fn get_reader(self) -> impl Read {
         return Cursor::new(self.attribute);
     }
 }

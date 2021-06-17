@@ -7,7 +7,10 @@ use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum AttributingError {}
+pub enum AttributingError {
+    #[error("Io Error: {0}")]
+    IoError(#[from] std::io::Error),
+}
 
 bitflags! {
     pub struct ClassAccessFlags: u16 {
