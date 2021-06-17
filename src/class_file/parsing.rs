@@ -59,6 +59,12 @@ pub struct AttributeInfo {
     pub attribute: Vec<u8>,
 }
 
+impl AttributeInfo {
+    fn get_reader(self) -> impl Read {
+        return Cursor::new(self.attribute);
+    }
+}
+
 impl ByteParseable<ClassParseError> for InterfaceInfo {
     fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
         todo!()

@@ -2,6 +2,7 @@ use crate::byte_util::{read_to_vec, BigEndianReadExt, ByteParseable};
 use crate::class_file::constant_pool::ConstantPoolInfo::Class;
 use crate::class_file::parsing::ClassParseError;
 use std::io::Read;
+use std::any::{Any, TypeId};
 
 /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
 #[derive(Debug)]
@@ -78,4 +79,8 @@ impl ConstantPoolInfo {
             ConstantPoolInfo::PackageInfo(_) => 20,
         }
     }
+}
+
+pub trait ConstantPool {
+    fn get(&self, index: u16) -> ConstantPoolInfo;
 }

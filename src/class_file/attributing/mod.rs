@@ -1,5 +1,7 @@
+mod attributes;
+
 use crate::class_file::constant_pool::ConstantPoolInfo;
-use crate::class_file::parsing::ParsedClass;
+use crate::class_file::parsing::{ParsedClass, MethodInfo};
 use crate::class_file::{BasicClass, Stage};
 use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
@@ -51,7 +53,12 @@ struct AttributedClass {
     // pub attributes: Vec<AttributeInfo>
 }
 
-struct AnnotatedMethod {}
+struct AttributedMethod {
+    pub access_flags: MethodAccessFlags,
+    pub name_index: u16,
+    pub descriptor_index: u16,
+    // pub attributes: Vec<AttributeInfo>,
+}
 
 impl BasicClass for AttributedClass {
     fn get_stage() -> Stage {
@@ -71,5 +78,17 @@ impl TryFrom<ParsedClass> for AttributedClass {
             this_class: value.this_class,
             super_class: value.super_class,
         });
+    }
+}
+
+impl TryFrom<MethodInfo> for AttributedMethod {
+    type Error = AttributingError;
+
+    fn try_from(value: MethodInfo) -> Result<Self, Self::Error> {
+        return Ok(AttributedMethod {
+            access_flags: MethodAccessFlags::from_bits_truncate(value.access_flags),
+            name_index: value.name_index,
+            descriptor_index: value.descriptor_index
+        })
     }
 }
