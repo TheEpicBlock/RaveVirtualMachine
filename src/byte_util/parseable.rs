@@ -18,6 +18,55 @@ pub trait ByteParseable<ERR: error::Error> {
     }
 }
 
+#[macro_export]
+macro_rules! parseable_inner_parse {
+    ($Reader:expr, u8) => { crate::byte_util::BigEndianReadExt::read_u8($Reader) };
+    ($Reader:expr, u16) => { crate::byte_util::BigEndianReadExt::read_u16($Reader) };
+    ($Reader:expr, u32) => { crate::byte_util::BigEndianReadExt::read_u32($Reader) };
+    ($Reader:expr, u64) => { crate::byte_util::BigEndianReadExt::read_u64($Reader) };
+    ($Reader:expr, f32) => { crate::byte_util::BigEndianReadExt::read_f32($Reader) };
+    ($Reader:expr, f64) => { crate::byte_util::BigEndianReadExt::read_f64($Reader) };
+    ($Reader:expr, $Type:ident) => { $Type::parse($Reader) };
+}
+
+///Creates a basic [ByteParseable] implementation
+#[macro_export]
+macro_rules! gen_parseable {
+    (
+        const ERR = $Err:ident;
+        $(
+            $(#[$outer:meta])*
+            pub struct $Name:ident {
+                $(
+                    $Val:ident: $Type:ident,
+                )+
+            }
+        )+
+    ) => {
+        use $crate::parseable_inner_parse;
+        $(
+            $(#[$outer])*
+            pub struct $Name {
+                $(
+                    $Val: $Type,
+                )+
+            }
+
+            impl ByteParseable<$Err> for $Name {
+                fn parse(bytes: &mut impl Read) -> Result<Self, $Err> {
+                    Ok(
+                        Self {
+                            $(
+                                $Val: parseable_inner_parse!(bytes, $Type)?,
+                            )+
+                        }
+                    )
+                }
+            }
+        )+
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::{Cursor, Read};

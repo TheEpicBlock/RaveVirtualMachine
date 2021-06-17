@@ -2,7 +2,7 @@ use std::io::{Cursor, Error, Read};
 
 use crate::byte_util::ByteParseable;
 use crate::byte_util::{read_to_vec, BigEndianReadExt};
-use crate::class_file::constant_pool::ConstantPoolInfo;
+use crate::class_file::constant_pool::ConstantPoolEntry;
 use crate::class_file::{BasicClass, Stage};
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -23,7 +23,7 @@ pub enum ClassParseError {
 pub struct ParsedClass {
     pub minor_version: u16,
     pub major_version: u16,
-    pub constant_pool: Vec<ConstantPoolInfo>,
+    pub constant_pool: Vec<ConstantPoolEntry>,
     pub access_flags: u16,
     pub this_class: u16,
     pub super_class: u16,

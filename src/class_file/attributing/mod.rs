@@ -1,6 +1,6 @@
 mod attributes;
 
-use crate::class_file::constant_pool::ConstantPoolInfo;
+use crate::class_file::constant_pool::ConstantPoolEntry;
 use crate::class_file::parsing::{ParsedClass, MethodInfo};
 use crate::class_file::{BasicClass, Stage};
 use std::convert::{TryFrom, TryInto};
@@ -43,7 +43,7 @@ bitflags! {
 struct AttributedClass {
     pub minor_version: u16,
     pub major_version: u16,
-    pub constant_pool: Vec<ConstantPoolInfo>,
+    pub constant_pool: Vec<ConstantPoolEntry>,
     pub access_flags: ClassAccessFlags,
     pub this_class: u16,
     pub super_class: u16,
