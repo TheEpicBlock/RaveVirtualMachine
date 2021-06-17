@@ -33,7 +33,7 @@ macro_rules! parseable_inner_parse {
 #[macro_export]
 macro_rules! gen_parseable {
     (
-        const ERR = $Err:ident;
+        const ERR = $Err:path;
         $(
             $(#[$outer:meta])*
             pub struct $Name:ident {
@@ -73,6 +73,7 @@ mod tests {
 
     use crate::byte_util::parseable::ByteParseable;
     use crate::byte_util::BigEndianReadExt;
+    use crate::gen_parseable;
 
     #[derive(Eq, PartialEq, Debug)]
     struct Test(u8);
@@ -96,5 +97,20 @@ mod tests {
             tests,
             Test::parse_array(&mut Cursor::new(bytes), tests.len()).unwrap()
         )
+    }
+
+    gen_parseable! {
+        const ERR = std::io::Error;
+
+        pub struct MacroTest {
+            inner: u8,
+        }
+    }
+
+    #[test]
+    fn auto_macro_test() {
+        let bytes = vec![0x56];
+        let parsed = MacroTest::parse_bytes(&bytes).unwrap();
+        assert_eq!(parsed.inner, 0x56)
     }
 }
