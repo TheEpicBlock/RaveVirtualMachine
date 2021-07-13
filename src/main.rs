@@ -3,6 +3,8 @@ use std::io::BufReader;
 use std::path::Path;
 
 use clap::{App, Arg, SubCommand};
+use crate::class_file::constant_pool::ConstantPool;
+use crate::class_file::constant_pool::types::Utf8Info;
 
 mod byte_util;
 pub mod class_file;
@@ -36,10 +38,17 @@ fn main() {
         match res {
             Ok(class) => {
                 println!("Successfully parsed file");
+                println!("== Constant Pool ==");
                 let mut i = 1;
-                for entry in class.constant_pool {
+                for entry in &class.constant_pool {
                     println!("#{}: {:?}", i, entry);
                     i += 1;
+                }
+
+                let a_class = class_file::attribute(class).expect("Failed to attribute class");
+                println!("== Methods ==");
+                for method in a_class.methods {
+                    println!("{}", a_class.constant_pool.get_as::<Utf8Info>(method.name_index).unwrap().inner);
                 }
             }
             Err(err) => {

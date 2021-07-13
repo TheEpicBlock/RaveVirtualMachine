@@ -5,9 +5,11 @@ use std::iter::Zip;
 
 use crate::byte_util::{BigEndianReadExt, ByteParseable};
 use crate::class_file::parsing::{ClassParseError, ParsedClass};
+use crate::class_file::attributing::{AttributedClass, AttributingError};
+use std::convert::TryFrom;
 
 mod attributing;
-mod constant_pool;
+pub(crate) mod constant_pool;
 mod parsing;
 
 /// A class goes through multiple stages before being used. This enum keeps track of them
@@ -24,4 +26,8 @@ pub trait BasicClass {
 
 pub fn parse(bytes: &mut impl Read) -> Result<ParsedClass, ClassParseError> {
     ParsedClass::parse(bytes)
+}
+
+pub fn attribute(class: ParsedClass) -> Result<AttributedClass, AttributingError> {
+    AttributedClass::try_from(class)
 }

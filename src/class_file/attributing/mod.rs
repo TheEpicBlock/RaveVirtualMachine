@@ -1,11 +1,13 @@
 mod attributes;
 mod attribute_parsing;
 
-use crate::class_file::constant_pool::ConstantPoolEntry;
-use crate::class_file::parsing::{ParsedClass, MethodInfo};
+use crate::class_file::constant_pool::{ConstantPoolEntry, ConstantPool};
+use crate::class_file::parsing::{ParsedClass, MethodInfo, AttributeInfo};
 use crate::class_file::{BasicClass, Stage};
 use std::convert::{TryFrom, TryInto};
 use thiserror::Error;
+use crate::class_file::attributing::attribute_parsing::ParsedAttribute;
+use std::fs::read_to_string;
 
 #[derive(Error, Debug)]
 pub enum AttributingError {
@@ -46,7 +48,11 @@ bitflags! {
     }
 }
 
-struct AttributedClass {
+pub trait TryAttributeFrom<T> {
+    fn parse(info: T, pool: &impl ConstantPool) -> Result<Self, AttributingError> where Self: Sized;
+}
+
+pub struct AttributedClass {
     pub minor_version: u16,
     pub major_version: u16,
     pub constant_pool: Vec<ConstantPoolEntry>,
@@ -55,15 +61,15 @@ struct AttributedClass {
     pub super_class: u16,
     // pub interfaces: Vec<InterfaceInfo>,
     // pub fields: Vec<FieldInfo>,
-    // pub methods: Vec<MethodInfo>,
-    // pub attributes: Vec<AttributeInfo>
+    pub methods: Vec<AttributedMethod>,
+    pub attributes: Vec<ParsedAttribute>
 }
 
-struct AttributedMethod {
+pub struct AttributedMethod {
     pub access_flags: MethodAccessFlags,
     pub name_index: u16,
     pub descriptor_index: u16,
-    // pub attributes: Vec<AttributeInfo>,
+    pub attributes: Vec<ParsedAttribute>,
 }
 
 impl BasicClass for AttributedClass {
@@ -79,22 +85,46 @@ impl TryFrom<ParsedClass> for AttributedClass {
         return Ok(AttributedClass {
             minor_version: value.minor_version,
             major_version: value.major_version,
-            constant_pool: value.constant_pool,
             access_flags: ClassAccessFlags::from_bits_truncate(value.access_flags),
             this_class: value.this_class,
             super_class: value.super_class,
+            methods: convert_vec(value.methods, &value.constant_pool)?,
+            attributes: parse_attributes(value.attributes, &value.constant_pool)?,
+            constant_pool: value.constant_pool,
         });
     }
 }
 
-impl TryFrom<MethodInfo> for AttributedMethod {
-    type Error = AttributingError;
+fn convert_vec<T, B: TryAttributeFrom<T>>(input: Vec<T>, pool: &impl ConstantPool) -> Result<Vec<B>, AttributingError> {
+    let mut new_vec = Vec::with_capacity(input.len());
 
-    fn try_from(value: MethodInfo) -> Result<Self, Self::Error> {
+    for object in input {
+        new_vec.push(B::parse(object, pool)?);
+    }
+
+    return Ok(new_vec);
+}
+
+fn parse_attributes(input: Vec<AttributeInfo>, pool: &impl ConstantPool) -> Result<Vec<ParsedAttribute>, AttributingError> {
+    let mut new_vec = Vec::with_capacity(input.len());
+
+    for object in input {
+        let optional_attribute = ParsedAttribute::from(object, pool)?;
+        if let Some(attribute) = optional_attribute {
+            new_vec.push(attribute);
+        }
+    }
+
+    return Ok(new_vec);
+}
+
+impl TryAttributeFrom<MethodInfo> for AttributedMethod {
+    fn parse(info: MethodInfo, pool: &impl ConstantPool) -> Result<Self, AttributingError> where Self: Sized {
         return Ok(AttributedMethod {
-            access_flags: MethodAccessFlags::from_bits_truncate(value.access_flags),
-            name_index: value.name_index,
-            descriptor_index: value.descriptor_index
+            access_flags: MethodAccessFlags::from_bits_truncate(info.access_flags),
+            name_index: info.name_index,
+            descriptor_index: info.descriptor_index,
+            attributes: parse_attributes(info.attributes, pool)?
         })
     }
 }

@@ -4,6 +4,7 @@ use crate::class_file::constant_pool::{ConstantPool, Utf8Info};
 use crate::class_file::constant_pool::types;
 use crate::class_file::attributing::AttributingError;
 use crate::class_file::attributing::AttributingError::InvalidConstantPoolIndex;
+use crate::class_file::attributing::TryAttributeFrom;
 
 macro_rules! gen_attribute_parser {
     (
@@ -20,7 +21,7 @@ macro_rules! gen_attribute_parser {
         }
 
         impl ParsedAttribute {
-            fn from(info: AttributeInfo, pool: impl ConstantPool) -> Result<Option<Self>, AttributingError> {
+            pub fn from(info: AttributeInfo, pool: &impl ConstantPool) -> Result<Option<Self>, AttributingError> {
                 let name = pool.get_as::<types::Utf8Info>(info.name_index);
                 match name {
                     Some(string) => {
@@ -68,7 +69,7 @@ mod tests {
             attribute: vec![5, 6],
         };
 
-        let parsed = ParsedAttribute::from(attribute_info, pool).unwrap().unwrap();
+        let parsed = ParsedAttribute::from(attribute_info, &pool).unwrap().unwrap();
         assert!(matches!(parsed, ParsedAttribute::ConstantValue(_)))
     }
 
@@ -83,7 +84,7 @@ mod tests {
             attribute: vec![5],
         };
 
-        let parsed = ParsedAttribute::from(attribute_info, pool).unwrap();
+        let parsed = ParsedAttribute::from(attribute_info, &pool).unwrap();
         assert!(matches!(parsed, None));
     }
 
@@ -98,7 +99,7 @@ mod tests {
             attribute: vec![5],
         };
 
-        let parsed = ParsedAttribute::from(attribute_info, pool);
+        let parsed = ParsedAttribute::from(attribute_info, &pool);
         if let Err(err) = parsed {
             assert!(matches!(err, AttributingError::InvalidConstantPoolIndex(233)));
         } else {
