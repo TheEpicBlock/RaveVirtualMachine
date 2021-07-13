@@ -36,7 +36,7 @@ fn main() {
         match res {
             Ok(class) => {
                 println!("Successfully parsed file");
-                let mut i = 0;
+                let mut i = 1;
                 for entry in class.constant_pool {
                     println!("#{}: {:?}", i, entry);
                     i += 1;

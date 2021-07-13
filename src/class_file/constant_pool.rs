@@ -17,7 +17,7 @@ macro_rules! gen_constant_pool {
             pub trait ConstantPoolType {
                 type Inner;
                 fn get_index() -> u8;
-                fn inner_from_container(container: ConstantPoolEntry) -> Option<Self::Inner>;
+                fn inner_from_container(container: &ConstantPoolEntry) -> Option<&Self::Inner>;
             }
 
             $(
@@ -29,7 +29,7 @@ macro_rules! gen_constant_pool {
                         $Value
                     }
 
-                    fn inner_from_container(container: ConstantPoolEntry) -> Option<Self::Inner> {
+                    fn inner_from_container(container: &ConstantPoolEntry) -> Option<&Self::Inner> {
                         match container {
                             ConstantPoolEntry::$Flag(inner) => Some(inner),
                             _ => None,
@@ -136,7 +136,7 @@ gen_parseable! {
 }
 
 #[derive(Debug)]
-pub struct Utf8Info{inner: String,}
+pub struct Utf8Info{pub inner: String,}
 
 impl ByteParseable<ClassParseError> for Utf8Info {
     fn parse(bytes: &mut impl Read) -> Result<Self, ClassParseError> where Self: Sized {
@@ -150,9 +150,19 @@ impl ByteParseable<ClassParseError> for Utf8Info {
 }
 
 pub trait ConstantPool {
-    fn get(&self, index: u16) -> Option<ConstantPoolEntry>;
+    fn get(&self, index: u16) -> Option<&ConstantPoolEntry>;
 
-    fn get_as<T: types::ConstantPoolType>(&self, index: u16) -> Option<T::Inner> {
+    fn get_as<T: types::ConstantPoolType>(&self, index: u16) -> Option<&T::Inner> {
         return T::inner_from_container(self.get(index)?);
+    }
+}
+
+impl ConstantPool for Vec<ConstantPoolEntry> {
+    fn get(&self, index: u16) -> Option<&ConstantPoolEntry> {
+        if index as usize > self.len() {
+            return None;
+        }
+
+        return Some(&self[index as usize]);
     }
 }

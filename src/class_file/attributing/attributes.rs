@@ -17,7 +17,7 @@ impl<T: ByteParseable<Err>> AttributeParseable for T {
     }
 }
 
-pub trait Attribute: AttributeParseable{
+pub trait Attribute: AttributeParseable {
 
 }
 
@@ -28,3 +28,21 @@ gen_parseable! {
         value_index: u16,
     }
 }
+
+pub struct CodeAttribute {
+    max_stack: u16,
+    max_locals: u16,
+    code: Vec<()>,
+    exception_table: Vec<()>,
+    attributes: Vec<AttributeInfo>
+}
+//
+// impl ByteParseable<Err> for CodeAttribute {
+//     fn parse(bytes: &mut impl Read) -> Result<Self, Err> where Self: Sized {
+//
+//     }
+// }
+//
+// fn parse_code(bytes: &mut impl Read) -> Vec<> {
+//
+// }
