@@ -1,11 +1,12 @@
 use crate::class_file::parsing::AttributeInfo;
 use crate::class_file::attributing::{AttributingError, TryAttributeFrom};
 use crate::class_file::constant_pool::ConstantPool;
-use crate::byte_util::ByteParseable;
+use crate::byte_util::{ByteParseable, BigEndianReadExt, read_to_vec};
 use crate::gen_parseable;
 use std::io::Read;
+use crate::class_file::bytecode::Instruction;
 
-type Err = AttributingError;
+pub type Err = AttributingError;
 
 impl<T: ByteParseable<Err>> TryAttributeFrom<AttributeInfo> for T {
     fn parse(info: AttributeInfo, pool: &impl ConstantPool) -> Result<Self, Err> {
@@ -28,17 +29,36 @@ gen_parseable! {
 pub struct CodeAttribute {
     max_stack: u16,
     max_locals: u16,
-    code: Vec<()>,
-    exception_table: Vec<()>,
-    attributes: Vec<AttributeInfo>
+    code: Vec<Instruction>,
+    exception_table: Vec<u8>,
+    attributes: Vec<AttributeInfo>,
 }
-//
-// impl ByteParseable<Err> for CodeAttribute {
-//     fn parse(bytes: &mut impl Read) -> Result<Self, Err> where Self: Sized {
-//
-//     }
-// }
-//
-// fn parse_code(bytes: &mut impl Read) -> Vec<> {
-//
-// }
+
+impl ByteParseable<Err> for CodeAttribute {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Err> where Self: Sized {
+        let max_stack = bytes.read_u16()?;
+        let max_locals = bytes.read_u16()?;
+
+        let bytecode_size = bytes.read_u64()?;
+        let mut bytecode_bytes = bytes.take(bytecode_size);
+
+        let mut bytecode = Vec::new();
+        while bytecode_bytes.limit() != 0 {
+            bytecode.push(ByteParseable::parse(&mut bytecode_bytes)?);
+        }
+
+        let exception_table_size = bytes.read_u16()?;
+        let exception_table = read_to_vec(bytes, (exception_table_size * 8) as usize)?;
+
+        let attributes_size = bytes.read_u16()? as usize;
+        let attributes = AttributeInfo::parse_array(bytes, attributes_size)?;
+
+        return Ok(CodeAttribute {
+            max_stack,
+            max_locals,
+            code: bytecode,
+            exception_table,
+            attributes
+        });
+    }
+}

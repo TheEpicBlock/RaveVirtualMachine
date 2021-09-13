@@ -6,6 +6,7 @@ use crate::class_file::constant_pool::ConstantPoolEntry;
 use crate::class_file::{BasicClass, Stage};
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use std::io;
 
 #[derive(Error, Debug)]
 pub enum ClassParseError {
@@ -88,8 +89,8 @@ impl ByteParseable<ClassParseError> for MethodInfo {
     }
 }
 
-impl ByteParseable<ClassParseError> for AttributeInfo {
-    fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
+impl ByteParseable<io::Error> for AttributeInfo {
+    fn parse(mut bytes: &mut impl Read) -> Result<Self, io::Error> {
         let name_index = bytes.read_u16()?;
         let attribute_length = bytes.read_u32()? as usize;
 

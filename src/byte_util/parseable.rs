@@ -1,6 +1,7 @@
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Error};
 use std::string::FromUtf8Error;
 use std::{error, fmt};
+use crate::byte_util::BigEndianReadExt;
 
 pub trait ByteParseable<ERR: error::Error> {
     fn parse_bytes(bytes: &[u8]) -> Result<Self, ERR> where Self: Sized {
@@ -18,15 +19,35 @@ pub trait ByteParseable<ERR: error::Error> {
     }
 }
 
-#[macro_export]
-macro_rules! parseable_inner_parse {
-    ($Reader:expr, u8) => { crate::byte_util::BigEndianReadExt::read_u8($Reader) };
-    ($Reader:expr, u16) => { crate::byte_util::BigEndianReadExt::read_u16($Reader) };
-    ($Reader:expr, u32) => { crate::byte_util::BigEndianReadExt::read_u32($Reader) };
-    ($Reader:expr, u64) => { crate::byte_util::BigEndianReadExt::read_u64($Reader) };
-    ($Reader:expr, f32) => { crate::byte_util::BigEndianReadExt::read_f32($Reader) };
-    ($Reader:expr, f64) => { crate::byte_util::BigEndianReadExt::read_f64($Reader) };
-    ($Reader:expr, $Type:ident) => { $Type::parse($Reader) };
+impl ByteParseable<Error> for u8 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_u8();
+    }
+}
+impl ByteParseable<Error> for u16 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_u16();
+    }
+}
+impl ByteParseable<Error> for u32 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_u32();
+    }
+}
+impl ByteParseable<Error> for u64 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_u64();
+    }
+}
+impl ByteParseable<Error> for f32 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_f32();
+    }
+}
+impl ByteParseable<Error> for f64 {
+    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
+        return bytes.read_f64();
+    }
 }
 
 ///Creates a basic [ByteParseable] implementation
@@ -38,12 +59,11 @@ macro_rules! gen_parseable {
             $(#[$outer:meta])*
             pub struct $Name:ident {
                 $(
-                    $Val:ident: $Type:ident,
+                    $Val:ident: $Type:ty,
                 )+
             }
         )+
     ) => {
-        use $crate::parseable_inner_parse;
         $(
             $(#[$outer])*
             pub struct $Name {
@@ -57,7 +77,7 @@ macro_rules! gen_parseable {
                     Ok(
                         Self {
                             $(
-                                $Val: parseable_inner_parse!(bytes, $Type)?,
+                                $Val: <$Type>::parse(bytes)?,
                             )+
                         }
                     )

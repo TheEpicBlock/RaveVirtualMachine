@@ -1,4 +1,4 @@
-mod attributes;
+pub mod attributes;
 mod attribute_parsing;
 
 use crate::class_file::constant_pool::{ConstantPoolEntry, ConstantPool};
@@ -15,6 +15,8 @@ pub enum AttributingError {
     IoError(#[from] std::io::Error),
     #[error("Invalid Constant Pool index: {0}")]
     InvalidConstantPoolIndex(u16),
+    #[error("Invalid bytecode: {0}")]
+    InvalidBytecode(u8),
 }
 
 bitflags! {
