@@ -48,6 +48,7 @@ macro_rules! gen_attribute_parser {
 gen_attribute_parser!(
     pub enum ParsedAttribute {
         ConstantValue(ConstantValueAttribute) = "ConstantValue",
+        Code(CodeAttribute) = "Code",
     }
 );
 
@@ -65,7 +66,7 @@ mod tests {
         ];
 
         let attribute_info = AttributeInfo {
-            name_index: 0,
+            name_index: 1,
             attribute: vec![5, 6],
         };
 
@@ -80,7 +81,7 @@ mod tests {
         ];
 
         let attribute_info = AttributeInfo {
-            name_index: 0,
+            name_index: 1,
             attribute: vec![5],
         };
 

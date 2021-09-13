@@ -5,6 +5,7 @@ use std::path::Path;
 use clap::{App, Arg, SubCommand};
 use crate::class_file::constant_pool::ConstantPool;
 use crate::class_file::constant_pool::types::Utf8Info;
+use crate::class_file::attributing::attribute_parsing::ParsedAttribute;
 
 mod byte_util;
 pub mod class_file;
@@ -49,6 +50,13 @@ fn main() {
                 println!("== Methods ==");
                 for method in a_class.methods {
                     println!("{}", a_class.constant_pool.get_as::<Utf8Info>(method.name_index).unwrap().inner);
+                    for attribute in method.attributes {
+                        if let ParsedAttribute::Code(code) = attribute {
+                            for inst in code.code {
+                                println!("{:?}", inst);
+                            }
+                        }
+                    }
                 }
             }
             Err(err) => {

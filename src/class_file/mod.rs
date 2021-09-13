@@ -8,7 +8,7 @@ use crate::class_file::parsing::{ClassParseError, ParsedClass};
 use crate::class_file::attributing::{AttributedClass, AttributingError};
 use std::convert::TryFrom;
 
-mod attributing;
+pub mod attributing;
 pub(crate) mod constant_pool;
 mod parsing;
 mod bytecode;

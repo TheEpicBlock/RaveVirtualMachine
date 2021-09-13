@@ -11,6 +11,7 @@ macro_rules! gen_bytecode_enum {
             )+
         }
     ) => {
+        #[derive(Debug)]
         pub enum $Name {
             $(
                 $Instr$(($($innerType)+))?,

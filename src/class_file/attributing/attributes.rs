@@ -27,11 +27,11 @@ gen_parseable! {
 }
 
 pub struct CodeAttribute {
-    max_stack: u16,
-    max_locals: u16,
-    code: Vec<Instruction>,
-    exception_table: Vec<u8>,
-    attributes: Vec<AttributeInfo>,
+    pub max_stack: u16,
+    pub max_locals: u16,
+    pub code: Vec<Instruction>,
+    pub exception_table: Vec<u8>,
+    pub attributes: Vec<AttributeInfo>,
 }
 
 impl ByteParseable<Err> for CodeAttribute {

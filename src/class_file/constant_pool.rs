@@ -159,10 +159,10 @@ pub trait ConstantPool {
 
 impl ConstantPool for Vec<ConstantPoolEntry> {
     fn get(&self, index: u16) -> Option<&ConstantPoolEntry> {
-        if index as usize > self.len() {
+        if index < 1 || index as usize-1 > self.len() {
             return None;
         }
 
-        return Some(&self[index as usize]);
+        return Some(&self[index as usize-1]);
     }
 }

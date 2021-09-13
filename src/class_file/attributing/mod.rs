@@ -1,5 +1,5 @@
 pub mod attributes;
-mod attribute_parsing;
+pub mod attribute_parsing;
 
 use crate::class_file::constant_pool::{ConstantPoolEntry, ConstantPool};
 use crate::class_file::parsing::{ParsedClass, MethodInfo, AttributeInfo};
