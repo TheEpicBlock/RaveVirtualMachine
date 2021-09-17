@@ -110,6 +110,11 @@ mod tests {
     use super::BigEndianReadExt;
 
     #[test]
+    fn read_0() {
+        assert_eq!(Cursor::new(&[0x00]).read_u8().unwrap(), 0x00)
+    }
+
+    #[test]
     fn read_u8() {
         assert_eq!(testing_cursor().read_u8().unwrap(), 0x01)
     }
@@ -124,7 +129,12 @@ mod tests {
         assert_eq!(testing_cursor().read_u32().unwrap(), 0x01020304)
     }
 
+    #[test]
+    fn read_u64() {
+        assert_eq!(testing_cursor().read_u64().unwrap(), 0x0102030405060708)
+    }
+
     fn testing_cursor() -> Cursor<&'static [u8]> {
-        Cursor::new(&[0x01, 0x02, 0x03, 0x04])
+        Cursor::new(&[0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08])
     }
 }

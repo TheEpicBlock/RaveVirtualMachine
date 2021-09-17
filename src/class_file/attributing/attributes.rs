@@ -39,8 +39,8 @@ impl ByteParseable<Err> for CodeAttribute {
         let max_stack = bytes.read_u16()?;
         let max_locals = bytes.read_u16()?;
 
-        let bytecode_size = bytes.read_u64()?;
-        let mut bytecode_bytes = bytes.take(bytecode_size);
+        let bytecode_size = bytes.read_u32()?;
+        let mut bytecode_bytes = bytes.take(bytecode_size as u64);
 
         let mut bytecode = Vec::new();
         while bytecode_bytes.limit() != 0 {
