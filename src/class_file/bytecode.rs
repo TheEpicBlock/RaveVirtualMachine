@@ -37,8 +37,11 @@ macro_rules! gen_bytecode_enum {
 
 gen_bytecode_enum! {
     #[derive(Debug)]
+    #[allow(non_camel_case_types)]
     pub enum Instruction {
+        ///Load onto the stack a reference from an array
         AALoad = 0x32,
+        ///Store a reference in an array
         AAStore = 0x53,
         AConstNull = 0x01,
         ALoad(u8) = 0x19,

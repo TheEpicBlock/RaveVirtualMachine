@@ -10,8 +10,8 @@ use std::convert::TryFrom;
 
 pub mod attributing;
 pub(crate) mod constant_pool;
-mod parsing;
-mod bytecode;
+pub mod parsing;
+pub mod bytecode;
 
 /// A class goes through multiple stages before being used. This enum keeps track of them
 pub enum Stage {

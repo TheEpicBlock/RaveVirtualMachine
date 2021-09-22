@@ -9,7 +9,7 @@ use crate::class_file::bytecode::Instruction;
 pub type Err = AttributingError;
 
 impl<T: ByteParseable<Err>> TryAttributeFrom<AttributeInfo> for T {
-    fn parse(info: AttributeInfo, pool: &impl ConstantPool) -> Result<Self, Err> {
+    fn parse(info: AttributeInfo, _: &impl ConstantPool) -> Result<Self, Err> {
         Self::parse(&mut info.get_reader())
     }
 }
