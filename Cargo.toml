@@ -1,13 +1,12 @@
-[package]
-name = "rave-virtual-machine"
-version = "0.1.0"
-authors = ["TheEpicBlock <git.teb@theepicblock.nl>"]
-edition = "2018"
+[workspace]
+members = [
+    "classfile-parser",
+    "cli",
+    "vm"
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-byteorder = "1.4.3"
-clap = "2.33"
-thiserror = "1.0"
-bitflags = "1.2.1"
+#[dependencies]
+#byteorder = "1.4.3"
+#clap = "2.33"
+#thiserror = "1.0"
+#bitflags = "1.2.1"

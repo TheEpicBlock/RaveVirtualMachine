@@ -13,10 +13,7 @@ use byteorder::ReadBytesExt;
 ///
 /// Read unsigned 16 bit big-endian integers from a [`Read`]:
 ///
-/// ```
-/// use std::io::Cursor;
-/// use byteutil::BigEndianReadExt
-///
+/// ```ignore
 /// let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
 /// assert_eq!(517, rdr.read_u16().unwrap());
 /// assert_eq!(768, rdr.read_u16().unwrap());
