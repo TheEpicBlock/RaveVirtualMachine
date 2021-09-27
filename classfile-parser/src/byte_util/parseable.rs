@@ -10,14 +10,6 @@ pub trait ByteParseable {
     fn parse(bytes: &mut impl Read) -> Result<Self, ClassParseError> where Self: Sized;
 }
 
-pub fn parse_multiple<T: ByteParseable>(bytes: &mut impl Read, amount: usize) -> Result<Vec<T>, ClassParseError> {
-    let mut result = Vec::with_capacity(amount);
-    for _ in 0..amount {
-        result.push(T::parse(bytes)?);
-    }
-    return Ok(result);
-}
-
 macro_rules! gen_primitive_impl {
     (
         $($Type:ty => $Function:path),+
@@ -82,32 +74,8 @@ mod tests {
     use std::io::{Cursor, Read};
 
     use crate::byte_util::parseable::ByteParseable;
-    use crate::byte_util::BigEndianReadExt;
-    use crate::gen_parseable;
-
-    #[derive(Eq, PartialEq, Debug)]
-    struct Test(u8);
-
-    impl ByteParseable for Test {
-        fn parse(bytes: &mut impl Read) -> Result<Self, std::io::Error> {
-            Ok(Test(bytes.read_u8()?))
-        }
-    }
-
-    #[test]
-    fn vector_byte_parse() {
-        let bytes = vec![1, 2, 3, 5, 8];
-        let mut tests = Vec::with_capacity(bytes.len());
-        for i in &bytes {
-            tests.push(Test(*i));
-        }
-
-        //Vector is now out original list of numbers. And byte_vector is the same but with the length appended at the front as a u16.
-        assert_eq!(
-            tests,
-            Test::parse_array(&mut Cursor::new(bytes), tests.len()).unwrap()
-        )
-    }
+    use crate::byte_util::{BigEndianReadExt, parse_multiple};
+    use crate::{gen_parseable, ClassParseError};
 
     gen_parseable! {
         pub struct MacroTest {

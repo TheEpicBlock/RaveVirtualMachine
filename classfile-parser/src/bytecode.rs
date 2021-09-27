@@ -250,10 +250,9 @@ gen_bytecode_enum! {
 
 #[cfg(test)]
 mod tests {
-    use crate::class_file::bytecode::Instruction;
+    use crate::bytecode::Instruction;
     use crate::byte_util::ByteParseable;
-    use std::io::Cursor;
-    use crate::class_file::attributing::AttributingError;
+    use crate::ClassParseError;
 
     #[test]
     fn parse_aload0() {
@@ -275,6 +274,6 @@ mod tests {
         let bytes = vec![0xfd];
         let result = Instruction::parse_bytes(&bytes);
 
-        assert!(matches!(result, Err(AttributingError::InvalidBytecode(0xfd))), "result: {:?}", result);
+        assert!(matches!(result, Err(ClassParseError::InvalidBytecode(0xfd))), "result: {:?}", result);
     }
 }

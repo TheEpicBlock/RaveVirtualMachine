@@ -1,6 +1,28 @@
 use crate::byte_util::{read_to_vec, BigEndianReadExt, ByteParseable};
 use crate::{gen_parseable, ClassParseError};
-use std::io::Read;
+use std::io::{Read, Cursor};
+
+pub trait ParseableWithCP {
+    fn parse_bytes(bytes: &[u8], pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
+        return Self::parse(&mut Cursor::new(bytes), pool);
+    }
+
+    fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized;
+}
+
+impl<T: ByteParseable> ParseableWithCP for T {
+    fn parse(bytes: &mut impl Read, _: &impl ConstantPool) -> Result<Self, ClassParseError> {
+        Self::parse(bytes)
+    }
+}
+
+pub fn parse_multiple_with_cp<T: ParseableWithCP>(bytes: &mut impl Read, pool: &impl ConstantPool, amount: usize) -> Result<Vec<T>, ClassParseError> {
+    let mut result = Vec::with_capacity(amount);
+    for _ in 0..amount {
+        result.push(T::parse(bytes, pool)?);
+    }
+    return Ok(result);
+}
 
 macro_rules! gen_constant_pool {
     (
@@ -19,7 +41,7 @@ macro_rules! gen_constant_pool {
         }
 
         impl ByteParseable for ConstantPoolEntry {
-            fn parse(mut bytes: &mut impl Read) -> Result<Self, ClassParseError> {
+            fn parse(bytes: &mut impl Read) -> Result<Self, ClassParseError> {
                 let tag = bytes.read_u8()?;
                 match tag {
                     $(

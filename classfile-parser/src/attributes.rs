@@ -1,18 +1,21 @@
 use crate::constant_pool::{types, ConstantPool};
-use std::io::{Cursor, Read};
+use std::io::Read;
 use crate::ClassParseError;
 use crate::byte_util::{ByteParseable, BigEndianReadExt, read_to_vec};
 use crate::gen_parseable;
 use crate::bytecode::Instruction;
+use crate::constant_pool::ParseableWithCP;
 
 macro_rules! gen_attribute_parser {
     (
+        $(#[$Meta:meta])*
         pub enum $Name:ident {
             $(
                 $Flag:ident($Type:ident) = $Value:expr,
             )+
         }
     ) => {
+        $(#[$Meta])*
         pub enum $Name {
             $(
                 $Flag($Type),
@@ -23,7 +26,7 @@ macro_rules! gen_attribute_parser {
             pub fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Option<Self>, ClassParseError> {
                 let name_index = bytes.read_u16()?;
                 let attribute_size = bytes.read_u64()?;
-                let attribute_bytes = bytes.take(attribute_size);
+                let mut attribute_bytes = bytes.take(attribute_size);
 
                 let name = pool.get_as::<types::Utf8Info>(name_index); // Look up the index in the constant pool
                 let result = match name {
@@ -32,7 +35,7 @@ macro_rules! gen_attribute_parser {
                             // For each known name, we generate a match statement
                             $(
                                 $Value => {
-                                    Ok(Some($Name::$Flag(Attribute::parse(bytes, pool)?)))
+                                    Ok(Some($Name::$Flag(ParseableWithCP::parse(&mut attribute_bytes, pool)?)))
                                 },
                             )+
                             _ => {
@@ -45,28 +48,15 @@ macro_rules! gen_attribute_parser {
                     }
                 };
 
-                attribute_bytes.read_to_end(&mut vec![]); // ensure all bytes have been read
+                attribute_bytes.read_to_end(&mut vec![])?; // ensure all bytes have been read
                 return result;
             }
         }
     }
 }
 
-trait Attribute {
-    fn parse_bytes(bytes: &[u8], pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
-        return Self::parse(&mut Cursor::new(bytes), pool);
-    }
-
-    fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized;
-}
-
-impl<T: ByteParseable> Attribute for T {
-    fn parse(bytes: &mut impl Read, _: &impl ConstantPool) -> Result<Self, ClassParseError> {
-        Self::parse(bytes)
-    }
-}
-
 gen_attribute_parser!(
+    #[derive(Debug)]
     pub enum AttributeEntry {
         ConstantValue(ConstantValueAttribute) = "ConstantValue",
         Code(CodeAttribute) = "Code",
@@ -90,11 +80,13 @@ pub fn parse_attribute_array(bytes: &mut impl Read, pool: &impl ConstantPool) ->
 // Attributes
 
 gen_parseable! {
+    #[derive(Debug)]
     pub struct ConstantValueAttribute {
         value_index: u16,
     }
 }
 
+#[derive(Debug)]
 pub struct CodeAttribute {
     pub max_stack: u16,
     pub max_locals: u16,
@@ -103,7 +95,7 @@ pub struct CodeAttribute {
     pub attributes: Vec<AttributeEntry>,
 }
 
-impl Attribute for CodeAttribute {
+impl ParseableWithCP for CodeAttribute {
     fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
         let max_stack = bytes.read_u16()?;
         let max_locals = bytes.read_u16()?;
@@ -133,11 +125,10 @@ impl Attribute for CodeAttribute {
 
 #[cfg(test)]
 mod tests {
-    use crate::class_file::constant_pool::{ConstantPoolEntry, Utf8Info};
-    use crate::class_file::parsing::AttributeInfo;
-    use crate::class_file::attributing::attribute_parsing::ParsedAttribute;
-    use crate::class_file::attributing::AttributingError;
+    use crate::constant_pool::{ConstantPoolEntry, Utf8Info};
     use crate::attributes::AttributeEntry;
+    use std::io::Cursor;
+    use crate::ClassParseError;
 
     #[test]
     fn parse_constant_value() {
@@ -150,8 +141,8 @@ mod tests {
             5, 6
         ];
 
-        let parsed = ParsedAttribute::from(&bytes, &pool).unwrap().unwrap();
-        assert!(matches!(parsed, ParsedAttribute::ConstantValue(_)))
+        let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap().unwrap();
+        assert!(matches!(parsed, AttributeEntry::ConstantValue(_)))
     }
 
     #[test]
@@ -160,12 +151,12 @@ mod tests {
             ConstantPoolEntry::Utf8Info(Utf8Info { inner: "Unknown Value".to_owned() })
         ];
 
-        let attribute_info = AttributeInfo {
-            name_index: 1,
-            attribute: vec![5],
-        };
+        let bytes = vec![
+            1, //name index
+            5
+        ];
 
-        let parsed = ParsedAttribute::from(attribute_info, &pool).unwrap();
+        let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap();
         assert!(matches!(parsed, None));
     }
 
@@ -175,14 +166,14 @@ mod tests {
             ConstantPoolEntry::Utf8Info(Utf8Info { inner: "Unknown Value".to_owned() })
         ];
 
-        let attribute_info = AttributeInfo {
-            name_index: 233,
-            attribute: vec![5],
-        };
+        let bytes = vec![
+            233, //name index
+            5
+        ];
 
-        let parsed = ParsedAttribute::from(attribute_info, &pool);
+        let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool);
         if let Err(err) = parsed {
-            assert!(matches!(err, AttributingError::InvalidConstantPoolIndex(233)));
+            assert!(matches!(err, ClassParseError::InvalidConstantPoolIndex(233)));
         } else {
             panic!("Didn't receive error");
         }
