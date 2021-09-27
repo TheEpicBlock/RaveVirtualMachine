@@ -1,6 +1,5 @@
 use std::io;
-use std::io::{Cursor, Read, Result};
-use std::prelude::v1;
+use std::io::Result;
 
 use byteorder::BigEndian;
 use byteorder::ReadBytesExt;
@@ -20,7 +19,6 @@ use byteorder::ReadBytesExt;
 /// ```
 ///
 /// [`BigEndian`]: enum.BigEndian.html
-/// [`LittleEndian`]: enum.LittleEndian.html
 /// [`Read`]: https://doc.rust-lang.org/std/io/trait.Read.html
 pub trait BigEndianReadExt: io::Read {
     /// Reads an unsigned 8 bit integer from the underlying reader.

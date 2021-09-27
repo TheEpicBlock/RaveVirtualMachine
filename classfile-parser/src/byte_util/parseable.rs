@@ -1,60 +1,50 @@
-use std::io::{Cursor, Read, Error};
-use std::string::FromUtf8Error;
-use std::{error, fmt};
+use std::io::{Cursor, Read};
 use crate::byte_util::BigEndianReadExt;
+use crate::ClassParseError;
 
-pub trait ByteParseable<ERR: error::Error> {
-    fn parse_bytes(bytes: &[u8]) -> Result<Self, ERR> where Self: Sized {
+pub trait ByteParseable {
+    fn parse_bytes(bytes: &[u8]) -> Result<Self, ClassParseError> where Self: Sized {
         return Self::parse(&mut Cursor::new(bytes));
     }
 
-    fn parse(bytes: &mut impl Read) -> Result<Self, ERR> where Self: Sized;
-
-    fn parse_array(bytes: &mut impl Read, amount: usize) -> Result<Vec<Self>, ERR> where Self: Sized {
-        let mut res = Vec::with_capacity(amount);
-        for _ in 0..amount {
-            res.push(Self::parse(bytes)?);
-        }
-        return Ok(res);
-    }
+    fn parse(bytes: &mut impl Read) -> Result<Self, ClassParseError> where Self: Sized;
 }
 
-impl ByteParseable<Error> for u8 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_u8();
+pub fn parse_multiple<T: ByteParseable>(bytes: &mut impl Read, amount: usize) -> Result<Vec<T>, ClassParseError> {
+    let mut result = Vec::with_capacity(amount);
+    for _ in 0..amount {
+        result.push(T::parse(bytes)?);
+    }
+    return Ok(result);
+}
+
+macro_rules! gen_primitive_impl {
+    (
+        $($Type:ty => $Function:path),+
+    ) => {
+        $(
+            impl ByteParseable for $Type {
+                fn parse(bytes: &mut impl Read) -> Result<Self, ClassParseError> where Self: Sized {
+                    return Ok($Function(bytes)?);
+                }
+            }
+        )+
     }
 }
-impl ByteParseable<Error> for u16 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_u16();
-    }
-}
-impl ByteParseable<Error> for u32 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_u32();
-    }
-}
-impl ByteParseable<Error> for u64 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_u64();
-    }
-}
-impl ByteParseable<Error> for f32 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_f32();
-    }
-}
-impl ByteParseable<Error> for f64 {
-    fn parse(bytes: &mut impl Read) -> Result<Self, Error> where Self: Sized {
-        return bytes.read_f64();
-    }
+
+gen_primitive_impl! {
+    u8  => BigEndianReadExt::read_u8,
+    u16 => BigEndianReadExt::read_u16,
+    u32 => BigEndianReadExt::read_u32,
+    u64 => BigEndianReadExt::read_u64,
+    f32 => BigEndianReadExt::read_f32,
+    f64 => BigEndianReadExt::read_f64
 }
 
 ///Creates a basic [ByteParseable] implementation
 #[macro_export]
 macro_rules! gen_parseable {
     (
-        const ERR = $Err:path;
         $(
             $(#[$outer:meta])*
             pub struct $Name:ident {
@@ -72,12 +62,12 @@ macro_rules! gen_parseable {
                 )+
             }
 
-            impl ByteParseable<$Err> for $Name {
-                fn parse(bytes: &mut impl Read) -> Result<Self, $Err> {
+            impl ByteParseable for $Name {
+                fn parse(bytes: &mut impl Read) -> Result<Self, crate::ClassParseError> {
                     Ok(
                         Self {
                             $(
-                                $Val: <$Type>::parse(bytes)?,
+                                $Val: ByteParseable::parse(bytes)?,
                             )+
                         }
                     )
@@ -98,7 +88,7 @@ mod tests {
     #[derive(Eq, PartialEq, Debug)]
     struct Test(u8);
 
-    impl ByteParseable<std::io::Error> for Test {
+    impl ByteParseable for Test {
         fn parse(bytes: &mut impl Read) -> Result<Self, std::io::Error> {
             Ok(Test(bytes.read_u8()?))
         }
@@ -120,8 +110,6 @@ mod tests {
     }
 
     gen_parseable! {
-        const ERR = std::io::Error;
-
         pub struct MacroTest {
             inner: u8,
         }
