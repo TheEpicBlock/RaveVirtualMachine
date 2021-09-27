@@ -20,10 +20,13 @@ macro_rules! gen_attribute_parser {
         }
 
         impl $Name {
-            pub fn from(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Option<Self>, ClassParseError> {
+            pub fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Option<Self>, ClassParseError> {
                 let name_index = bytes.read_u16()?;
+                let attribute_size = bytes.read_u64()?;
+                let attribute_bytes = bytes.take(attribute_size);
+
                 let name = pool.get_as::<types::Utf8Info>(name_index); // Look up the index in the constant pool
-                match name {
+                let result = match name {
                     Some(string) => {
                         match &string.inner[..] {
                             // For each known name, we generate a match statement
@@ -40,7 +43,10 @@ macro_rules! gen_attribute_parser {
                     None => {
                         Err(ClassParseError::InvalidConstantPoolIndex(name_index))
                     }
-                }
+                };
+
+                attribute_bytes.read_to_end(&mut vec![]); // ensure all bytes have been read
+                return result;
             }
         }
     }
@@ -72,7 +78,7 @@ pub fn parse_attribute_array(bytes: &mut impl Read, pool: &impl ConstantPool) ->
 
     let mut result = Vec::with_capacity(amount as usize);
     for _ in 0..amount {
-        let optional_entry = AttributeEntry::from(bytes, pool)?;
+        let optional_entry = AttributeEntry::parse(bytes, pool)?;
         match optional_entry {
             Some(entry) => result.push(entry),
             None => {} // Ignore unrecognized attributes
