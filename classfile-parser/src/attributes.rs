@@ -26,7 +26,6 @@ macro_rules! gen_attribute_parser {
             pub fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Option<Self>, ClassParseError> {
                 let name_index = bytes.read_u16()?;
                 let attribute_size = bytes.read_u64()?;
-                let mut attribute_bytes = bytes.take(attribute_size);
 
                 let name = pool.get_as::<types::Utf8Info>(name_index); // Look up the index in the constant pool
                 let result = match name {
@@ -35,7 +34,7 @@ macro_rules! gen_attribute_parser {
                             // For each known name, we generate a match statement
                             $(
                                 $Value => {
-                                    Ok(Some($Name::$Flag(ParseableWithCP::parse(&mut attribute_bytes, pool)?)))
+                                    Ok(Some($Name::$Flag(Attribute::parse(bytes, attribute_size, pool)?)))
                                 },
                             )+
                             _ => {
@@ -48,7 +47,6 @@ macro_rules! gen_attribute_parser {
                     }
                 };
 
-                attribute_bytes.read_to_end(&mut vec![])?; // ensure all bytes have been read
                 return result;
             }
         }
@@ -95,8 +93,18 @@ pub struct CodeAttribute {
     pub attributes: Vec<AttributeEntry>,
 }
 
-impl ParseableWithCP for CodeAttribute {
-    fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
+trait Attribute {
+    fn parse(bytes: &mut impl Read, expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized;
+}
+
+impl<T: ByteParseable> Attribute for T {
+    fn parse(bytes: &mut impl Read, _expected_size: u64, _pool: &impl ConstantPool) -> Result<Self, ClassParseError> {
+        Self::parse(bytes)
+    }
+}
+
+impl Attribute for CodeAttribute {
+    fn parse(bytes: &mut impl Read, expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
         let max_stack = bytes.read_u16()?;
         let max_locals = bytes.read_u16()?;
 
@@ -137,8 +145,9 @@ mod tests {
         ];
 
         let bytes = vec![
-            1, //name index
-            5, 6
+            0, 1, //name index
+            0, 0, 0, 0, 0, 0, 0, 2, // length
+            5, 6u8 // content
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap().unwrap();
@@ -152,8 +161,9 @@ mod tests {
         ];
 
         let bytes = vec![
-            1, //name index
-            5
+            0, 1, //name index
+            0, 0, 0, 0, 0, 0, 0, 1, // length
+            5u8 // content
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap();
@@ -167,8 +177,9 @@ mod tests {
         ];
 
         let bytes = vec![
-            233, //name index
-            5
+            0, 233, //name index
+            0, 0, 0, 0, 0, 0, 0, 1, // length
+            5u8
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool);
