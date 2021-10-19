@@ -79,7 +79,7 @@ macro_rules! gen_constant_pool {
 
 gen_constant_pool! {
     /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub enum ConstantPoolTypes {
         Class(NameInfo) = 7,
         FieldRef(TypeRefInfo) = 9,
@@ -102,56 +102,80 @@ gen_constant_pool! {
 }
 
 gen_parseable! {
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct NameInfo {
         name_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct TypeRefInfo {
         class_index: u16,
         name_and_type_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct StringInfo {
         string_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct NameAndTypeInfo {
         name_index: u16,
         descriptor_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct MethodHandleInfo {
         reference_kind: u8,
         reference_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct MethodTypeInfo {
         descriptor_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct DynamicInfo {
         bootstrap_method_attr_index: u16,
         name_and_type_index: u16,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Integer{inner: u32,}
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Float{inner: f32,}
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Long{inner: u64,}
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Double{inner: f64,}
 }
 
-#[derive(Debug)]
+impl Integer {
+    pub fn new(inner: u32) -> Self {
+        Integer { inner }
+    }
+}
+
+impl Long {
+    pub fn new(inner: u64) -> Self {
+        Long { inner }
+    }
+}
+
+impl Float {
+    pub fn new(inner: f32) -> Self {
+        Float { inner }
+    }
+}
+
+impl Double {
+    pub fn new(inner: f64) -> Self {
+        Double { inner }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Utf8Info{pub inner: String,}
 
 impl ByteParseable for Utf8Info {
@@ -178,12 +202,12 @@ pub trait ConstantPool {
     ///
     /// # Examples
     /// ```
-    /// use classfile_parser::constant_pool::{ConstantPoolEntry, Float, Integer, ConstantPool};
-    /// use classfile_parser::constant_pool::types::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::{Float, Integer, ConstantPool};
+    /// use classfile_parser::constant_pool::ConstantPoolEntry::{FloatInfo, IntegerInfo};
     ///
-    /// let pool = vec![FloatInfo(Float(5)), IntegerInfo(Integer(9))];
+    /// let pool = vec![FloatInfo(Float::new(5f32)), IntegerInfo(Integer::new(9))];
     ///
-    /// assert_eq!(pool.get_entry_0(0), FloatInfo(Float(5))); // Type is implied
+    /// assert_eq!(pool.get_entry_0(0), Some(&FloatInfo(Float::new(5f32)))); // Type is implied
     /// ```
     fn get_entry_0(&self, index: u16) -> Option<&ConstantPoolEntry>;
 
@@ -192,12 +216,12 @@ pub trait ConstantPool {
     ///
     /// # Examples
     /// ```
-    /// use classfile_parser::constant_pool::{ConstantPoolEntry, Float, Integer, ConstantPool};
-    /// use classfile_parser::constant_pool::types::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::{Float, Integer, ConstantPool};
+    /// use classfile_parser::constant_pool::ConstantPoolEntry::{FloatInfo, IntegerInfo};
     ///
-    /// let pool = vec![FloatInfo(Float(5)), IntegerInfo(Integer(9))];
+    /// let pool = vec![FloatInfo(Float::new(5f32)), IntegerInfo(Integer::new(9))];
     ///
-    /// assert_eq!(pool.get_entry(1), FloatInfo(Float(5))); // Type is implied
+    /// assert_eq!(pool.get_entry(1), Some(&FloatInfo(Float::new(5f32)))); // Type is implied
     /// ```
     #[inline]
     fn get_entry(&self, index: u16) -> Option<&ConstantPoolEntry> {
@@ -209,19 +233,19 @@ pub trait ConstantPool {
     ///
     /// # Examples
     /// ```
-    /// use classfile_parser::constant_pool::{ConstantPoolEntry, Float, Integer, ConstantPool};
-    /// use classfile_parser::constant_pool::types::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::{Float, Integer, ConstantPool};
+    /// use classfile_parser::constant_pool::ConstantPoolEntry::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::types;
     ///
-    /// let pool = vec![FloatInfo(Float(5)), IntegerInfo(Integer(9))];
+    /// let pool = vec![FloatInfo(Float::new(5f32)), IntegerInfo(Integer::new(9))];
     ///
-    /// assert_eq!(pool.get_as_0(0), Float(5)); // Type is implied
-    /// assert_eq!(pool.get_as_0::<IntegerInfo>(1), Integer(9)); // Type is specified via turbofish
+    /// assert_eq!(pool.get_as_0::<types::IntegerInfo>(1), Some(&Integer::new(9))); // Type is specified via turbofish
     ///
     /// // Will return None when the wrong type is present
-    /// assert!(pool.get_as_0::<IntegerInfo>(0).is_none());
+    /// assert!(pool.get_as_0::<types::IntegerInfo>(0).is_none());
     ///
     /// // Will return None when the index is out of range
-    /// assert!(pool.get_as_0::<IntegerInfo>(999).is_none());
+    /// assert!(pool.get_as_0::<types::IntegerInfo>(999).is_none());
     /// ```
     #[inline]
     fn get_as_0<T: ConstantPoolType>(&self, index: u16) -> Option<&T::Inner> {
@@ -233,19 +257,19 @@ pub trait ConstantPool {
     ///
     /// # Examples
     /// ```
-    /// use classfile_parser::constant_pool::{ConstantPoolEntry, Float, Integer, ConstantPool};
-    /// use classfile_parser::constant_pool::types::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::{Float, Integer, ConstantPool};
+    /// use classfile_parser::constant_pool::ConstantPoolEntry::{FloatInfo, IntegerInfo};
+    /// use classfile_parser::constant_pool::types;
     ///
-    /// let pool = vec![FloatInfo(Float(5)), IntegerInfo(Integer(9))];
+    /// let pool = vec![FloatInfo(Float::new(5f32)), IntegerInfo(Integer::new(9))];
     ///
-    /// assert_eq!(pool.get_as(1), Float(5)); // Type is implied
-    /// assert_eq!(pool.get_as::<IntegerInfo>(2), Integer(9)); // Type is specified via turbofish
+    /// assert_eq!(pool.get_as::<types::IntegerInfo>(2), Some(&Integer::new(9))); // Type is specified via turbofish
     ///
     /// // Will return None when the wrong type is present
-    /// assert!(pool.get_as::<IntegerInfo>(1).is_none());
+    /// assert!(pool.get_as::<types::IntegerInfo>(1).is_none());
     ///
     /// // Will return None when the index is out of range
-    /// assert!(pool.get_as::<IntegerInfo>(999).is_none());
+    /// assert!(pool.get_as::<types::IntegerInfo>(999).is_none());
     /// ```
     #[inline]
     fn get_as<T: ConstantPoolType>(&self, index: u16) -> Option<&T::Inner> {
@@ -259,7 +283,7 @@ pub trait ConstantPool {
     /// use classfile_parser::constant_pool::{ConstantPoolEntry, Float, Integer, ConstantPool};
     /// use classfile_parser::constant_pool::ConstantPoolEntry::{FloatInfo, IntegerInfo};
     ///
-    /// let pool = vec![FloatInfo(Float(5)), IntegerInfo(Integer(9))];
+    /// let pool = vec![FloatInfo(Float::new(5f32)), IntegerInfo(Integer::new(9))];
     ///
     /// assert_eq!(pool.size(), 2);
     /// ```
