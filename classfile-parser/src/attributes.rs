@@ -33,7 +33,8 @@ macro_rules! gen_attribute_parser {
                             // For each known name, we generate a match statement
                             $(
                                 $Value => {
-                                    Ok(Some($Name::$Flag(Attribute::parse(bytes, attribute_size, pool)?)))
+                                    Ok(Some($Name::$Flag(Attribute::parse(bytes, attribute_size, pool)
+                                        .map_err(|e| ClassParseError::AttributingError(string.inner.clone(), Box::new(e)))?)))
                                 },
                             )+
                             _ => {
@@ -112,7 +113,8 @@ impl Attribute for CodeAttribute {
 
         let mut bytecode = Vec::new();
         while bytecode_bytes.limit() != 0 {
-            bytecode.push(ByteParseable::parse(&mut bytecode_bytes)?);
+            bytecode.push(ByteParseable::parse(&mut bytecode_bytes)
+                .map_err(|e| e.with_misc_context("parsing bytecode array"))?);
         }
 
         let exception_table_size = bytes.read_u16()?;

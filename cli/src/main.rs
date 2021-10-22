@@ -7,6 +7,8 @@ use std::fs::File;
 use classfile_parser::constant_pool::ConstantPool;
 use classfile_parser::constant_pool::types::Utf8Info;
 use classfile_parser::attributes::AttributeEntry;
+use std::error::Error;
+use std::fmt::Display;
 
 fn main() {
     let cli = RaveCliFormat::parse();
@@ -46,10 +48,21 @@ fn main() {
                     }
                 }
                 Err(err) => {
-                    println!("Failed to parse file");
-                    println!("{:?}", err);
+                    println!("Failed to parse file. Caused by:");
+                    print_err(err);
                 }
             }
         }
     }
 }
+
+fn print_err(err: impl Error + Display) {
+    match err.source() {
+        Some(source) => {
+            print_err(source);
+        }
+        None => {}
+    }
+    println!(" - {}", err);
+}
+

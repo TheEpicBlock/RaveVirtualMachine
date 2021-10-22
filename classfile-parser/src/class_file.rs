@@ -109,7 +109,8 @@ impl ByteParseable for ClassFile {
         let fields = parse_multiple_with_cp(bytes, &constant_pool, fields_size as usize)?;
 
         let methods_size = bytes.read_u16()?;
-        let methods = parse_multiple_with_cp(bytes, &constant_pool, methods_size as usize)?;
+        let methods = parse_multiple_with_cp(bytes, &constant_pool, methods_size as usize)
+            .map_err(|e| ClassParseError::MethodParsingError(Box::new(e)))?;
 
         let attributes = parse_attribute_array(bytes, &constant_pool)?;
 
