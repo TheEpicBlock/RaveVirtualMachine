@@ -24,7 +24,7 @@ macro_rules! gen_attribute_parser {
         impl $Name {
             pub fn parse(bytes: &mut impl Read, pool: &impl ConstantPool) -> Result<Option<Self>, ClassParseError> {
                 let name_index = bytes.read_u16()?;
-                let attribute_size = bytes.read_u64()?;
+                let attribute_size = bytes.read_u32()?;
 
                 let name = pool.get_as::<types::Utf8Info>(name_index); // Look up the index in the constant pool
                 let result = match name {
@@ -95,17 +95,17 @@ pub struct CodeAttribute {
 }
 
 trait Attribute {
-    fn parse(bytes: &mut impl Read, expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized;
+    fn parse(bytes: &mut impl Read, expected_size: u32, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized;
 }
 
 impl<T: ByteParseable> Attribute for T {
-    fn parse(bytes: &mut impl Read, _expected_size: u64, _pool: &impl ConstantPool) -> Result<Self, ClassParseError> {
+    fn parse(bytes: &mut impl Read, _expected_size: u32, _pool: &impl ConstantPool) -> Result<Self, ClassParseError> {
         Self::parse(bytes)
     }
 }
 
 impl Attribute for CodeAttribute {
-    fn parse(bytes: &mut impl Read, _expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
+    fn parse(bytes: &mut impl Read, _expected_size: u32, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
         let max_stack = bytes.read_u16()?;
         let max_locals = bytes.read_u16()?;
 
@@ -148,7 +148,7 @@ mod tests {
 
         let bytes = vec![
             0, 1, //name index
-            0, 0, 0, 0, 0, 0, 0, 2, // length
+            0, 0, 0, 2, // length
             5, 6u8 // content
         ];
 
@@ -164,7 +164,7 @@ mod tests {
 
         let bytes = vec![
             0, 1, //name index
-            0, 0, 0, 0, 0, 0, 0, 1, // length
+            0, 0, 0, 1, // length
             5u8 // content
         ];
 
@@ -180,7 +180,7 @@ mod tests {
 
         let bytes = vec![
             0, 233, //name index
-            0, 0, 0, 0, 0, 0, 0, 1, // length
+            0, 0, 0, 1, // length
             5u8
         ];
 
