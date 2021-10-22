@@ -1,10 +1,10 @@
-use std::path::Path;
-use std::io::BufReader;
-use std::fs::File;
+
+
+
 use clap::{App, Arg, SubCommand};
 
 fn main() {
-    let cli = App::new("Rave Virtual Machine")
+    let _cli = App::new("Rave Virtual Machine")
         .version("1.0.0")
         .author("TheEpicBlock")
         .about("A java virtual machine implementation in rust")

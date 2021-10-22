@@ -71,11 +71,9 @@ macro_rules! gen_parseable {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Cursor, Read};
-
+    use std::io::{Read};
     use crate::byte_util::parseable::ByteParseable;
-    use crate::byte_util::{BigEndianReadExt, parse_multiple};
-    use crate::{gen_parseable, ClassParseError};
+    use crate::{gen_parseable};
 
     gen_parseable! {
         pub struct MacroTest {

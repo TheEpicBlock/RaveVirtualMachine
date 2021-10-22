@@ -152,8 +152,7 @@ impl ParseableWithCP for MethodInfo {
 
 #[cfg(test)]
 mod tests {
-    use crate::byte_util::{BigEndianReadExt, ByteParseable};
-    use std::io::{Cursor, Read, Seek};
+    use crate::byte_util::{ByteParseable};
     use crate::ClassParseError;
     use crate::class_file::ClassFile;
 

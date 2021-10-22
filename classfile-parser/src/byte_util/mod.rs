@@ -27,12 +27,10 @@ pub fn parse_multiple<T: ByteParseable>(bytes: &mut impl Read, amount: usize) ->
 mod tests {
     use crate::byte_util::{read_to_vec, BigEndianReadExt, parse_multiple};
     use std::io::Cursor;
-    use std::process::exit;
 
     #[test]
     fn test_read_to_vec() {
         let mut bytes = Cursor::new(&[0u8, 1, 2, 3, 4, 5, 6, 7]);
-        let len = 4;
         let vec = read_to_vec(&mut bytes, 4).unwrap();
 
         assert_eq!(vec, vec![0, 1, 2, 3]);

@@ -100,8 +100,7 @@ impl<R: io::Read + ?Sized> BigEndianReadExt for R {}
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Cursor, Read};
-
+    use std::io::{Cursor};
     use super::BigEndianReadExt;
 
     #[test]

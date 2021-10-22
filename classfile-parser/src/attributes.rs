@@ -104,7 +104,7 @@ impl<T: ByteParseable> Attribute for T {
 }
 
 impl Attribute for CodeAttribute {
-    fn parse(bytes: &mut impl Read, expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
+    fn parse(bytes: &mut impl Read, _expected_size: u64, pool: &impl ConstantPool) -> Result<Self, ClassParseError> where Self: Sized {
         let max_stack = bytes.read_u16()?;
         let max_locals = bytes.read_u16()?;
 
