@@ -1,5 +1,8 @@
 use std::string::FromUtf8Error;
 use thiserror::Error;
+use crate::class_file::ClassFile;
+use std::io::Read;
+use crate::byte_util::ByteParseable;
 
 mod byte_util;
 pub mod class_file;
@@ -24,4 +27,8 @@ pub enum ClassParseError {
     Utf8Error(#[from] FromUtf8Error),
     #[error("Invalid constant pool index (is of wrong type or out of bounds): {0}")]
     InvalidConstantPoolIndex(u16),
+}
+
+pub fn parse(bytes: &mut impl Read) -> Result<ClassFile, ClassParseError> {
+    ClassFile::parse(bytes)
 }

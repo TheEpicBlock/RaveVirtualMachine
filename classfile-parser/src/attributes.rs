@@ -4,7 +4,6 @@ use crate::ClassParseError;
 use crate::byte_util::{ByteParseable, BigEndianReadExt, read_to_vec};
 use crate::gen_parseable;
 use crate::bytecode::Instruction;
-use crate::constant_pool::ParseableWithCP;
 
 macro_rules! gen_attribute_parser {
     (
