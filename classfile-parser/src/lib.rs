@@ -3,7 +3,6 @@ use thiserror::Error;
 use crate::class_file::ClassFile;
 use std::io::Read;
 use crate::byte_util::ByteParseable;
-use std::fmt::{Display, Formatter};
 
 mod byte_util;
 pub mod class_file;
