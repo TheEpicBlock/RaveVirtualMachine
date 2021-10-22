@@ -41,7 +41,7 @@ fn main() {
                         for attribute in method.attributes {
                             if let AttributeEntry::Code(code) = attribute {
                                 for inst in code.code {
-                                    println!("{:?}", inst);
+                                    println!(" - {:?}", inst);
                                 }
                             }
                         }
