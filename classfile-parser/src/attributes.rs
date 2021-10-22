@@ -38,6 +38,7 @@ macro_rules! gen_attribute_parser {
                                 },
                             )+
                             _ => {
+                                read_to_vec(bytes, attribute_size as usize)?; // Read to empty vec
                                 Ok(None)
                             }
                         }
