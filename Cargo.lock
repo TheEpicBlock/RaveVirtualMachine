@@ -84,6 +84,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "classfile-parser",
+ "vm-core",
 ]
 
 [[package]]
@@ -278,8 +279,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fecdca9a5291cc2b8dcf7dc02453fee791a280f3743cb0905f8822ae463b3fe"
 
 [[package]]
-name = "vm"
+name = "vm-core"
 version = "0.1.0"
+dependencies = [
+ "classfile-parser",
+]
 
 [[package]]
 name = "winapi"

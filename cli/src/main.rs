@@ -52,6 +52,26 @@ fn main() {
                     print_err(err);
                 }
             }
+        },
+        RaveCliFormat::Run(run) => {
+            let file = run.file;
+
+            if !file.exists() {
+                println!("Invalid path {}", file.display());
+                return;
+            }
+
+            let mut reader = BufReader::new(File::open(file).expect("Error reading file"));
+            let res = classfile_parser::parse(&mut reader);
+            match res {
+                Ok(class) => {
+                    vm_core::basic_run(class)
+                }
+                Err(err) => {
+                    println!("Failed to parse file. Caused by:");
+                    print_err(err);
+                }
+            }
         }
     }
 }

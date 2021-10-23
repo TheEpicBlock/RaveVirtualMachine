@@ -2,5 +2,5 @@
 members = [
     "classfile-parser",
     "cli",
-    "vm"
+    "vm-core"
 ]
