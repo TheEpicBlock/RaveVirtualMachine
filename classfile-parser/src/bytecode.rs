@@ -253,12 +253,13 @@ mod tests {
     use crate::bytecode::Instruction;
     use crate::byte_util::ByteParseable;
     use crate::ClassParseError;
+    use assert_matches::assert_matches;
 
     #[test]
     fn parse_aload0() {
         let bytes = vec![0x2a];
         let instr = Instruction::parse_bytes(&bytes).unwrap();
-        assert!(matches!(instr, Instruction::ALoad(0)))
+        assert_matches!(instr, Instruction::ALoad(0));
     }
 
     #[test]
@@ -266,7 +267,7 @@ mod tests {
         let bytes = vec![0xb8, 0x12, 0x34];
         let result = Instruction::parse_bytes(&bytes).unwrap();
 
-        assert!(matches!(result, Instruction::InvokeStatic(0x1234)), "result: {:?}", result)
+        assert_matches!(result, Instruction::InvokeStatic(0x1234));
     }
 
     #[test]
@@ -274,6 +275,6 @@ mod tests {
         let bytes = vec![0xfd];
         let result = Instruction::parse_bytes(&bytes);
 
-        assert!(matches!(result, Err(ClassParseError::InvalidBytecode(0xfd))), "result: {:?}", result);
+        assert_matches!(result, Err(ClassParseError::InvalidBytecode(0xfd)));
     }
 }

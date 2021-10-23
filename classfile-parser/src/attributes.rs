@@ -139,6 +139,7 @@ mod tests {
     use crate::attributes::AttributeEntry;
     use std::io::Cursor;
     use crate::ClassParseError;
+    use assert_matches::assert_matches;
 
     #[test]
     fn parse_constant_value() {
@@ -149,11 +150,13 @@ mod tests {
         let bytes = vec![
             0, 1, //name index
             0, 0, 0, 2, // length
-            5, 6u8 // content
+            0xFE, 0xFEu8 // content
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap().unwrap();
-        assert!(matches!(parsed, AttributeEntry::ConstantValue(_)))
+        assert_matches!(parsed, AttributeEntry::ConstantValue(inner) => {
+            assert_eq!(inner.value_index, 0xFEFE);
+        });
     }
 
     #[test]
@@ -169,7 +172,7 @@ mod tests {
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool).unwrap();
-        assert!(matches!(parsed, None));
+        assert_matches!(parsed, None);
     }
 
     #[test]
@@ -185,10 +188,8 @@ mod tests {
         ];
 
         let parsed = AttributeEntry::parse(&mut Cursor::new(bytes), &pool);
-        if let Err(err) = parsed {
-            assert!(matches!(err, ClassParseError::InvalidConstantPoolIndex(233)));
-        } else {
-            panic!("Didn't receive error");
-        }
+        assert_matches!(parsed, Err(error) => {
+            assert_matches!(error, ClassParseError::InvalidConstantPoolIndex(233));
+        });
     }
 }
