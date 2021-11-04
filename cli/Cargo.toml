@@ -10,3 +10,4 @@ edition = "2018"
 clap = "3.0.0-beta.5"
 classfile-parser = { path = "../classfile-parser" }
 vm-core = { path = "../vm-core" }
+vm-cranelift = { path = "../vm-cranelift" }

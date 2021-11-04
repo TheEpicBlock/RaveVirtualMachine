@@ -9,6 +9,9 @@ use classfile_parser::constant_pool::types::Utf8Info;
 use classfile_parser::attributes::AttributeEntry;
 use std::error::Error;
 use std::fmt::Display;
+use vm_core::VirtualMachine;
+use vm_cranelift::CraneliftJitCompiler;
+use vm_core::class_loaders::SimpleClassLoader;
 
 fn main() {
     let cli = RaveCliFormat::parse();
@@ -65,7 +68,9 @@ fn main() {
             let res = classfile_parser::parse(&mut reader);
             match res {
                 Ok(class) => {
-                    vm_core::basic_run(class)
+                    let loader = SimpleClassLoader::new(class)
+                    let mut vm = VirtualMachine::new(loader, CraneliftJitCompiler::default());
+                    vm.start();
                 }
                 Err(err) => {
                     println!("Failed to parse file. Caused by:");
