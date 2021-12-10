@@ -39,18 +39,18 @@ macro_rules! gen_parseable {
     (
         $(
             $(#[$outer:meta])*
-            pub struct $Name:ident {
+            $Vis:vis struct $Name:ident {
                 $(
-                    $Val:ident: $Type:ty,
+                    $TypeVis:vis $Val:ident: $Type:ty,
                 )+
             }
         )+
     ) => {
         $(
             $(#[$outer])*
-            pub struct $Name {
+            $Vis struct $Name {
                 $(
-                    $Val: $Type,
+                    $TypeVis $Val: $Type,
                 )+
             }
 

@@ -3,7 +3,6 @@ mod class_store;
 pub mod class_loaders;
 
 use classfile_parser::class_file::ClassFile;
-use crate::classfile_util::find_main;
 use crate::class_store::ClassStore;
 
 pub struct VirtualMachine<'a, L: ClassLoader, T: JitCompiler> {
@@ -21,14 +20,17 @@ impl<'a, L: ClassLoader, T: JitCompiler> VirtualMachine<'a, L, T> {
         }
     }
 
-    pub fn start(&mut self) {
-        let main_method = find_main(&self.class).expect("couldn't find main method"); //FIXME shouldn't be a panic
+    pub fn start(&mut self, main: &str) -> Result<(),()> {
+        let classfile = self.class_loader.load(main);
+        let class = self.class_store.add_from_classfile(classfile)?;
+        class.find_main();
 
+        Ok(())
     }
 }
 
 pub trait ClassLoader {
-
+    fn load(&mut self, class: &str) -> ClassFile;
 }
 
 pub trait JitCompiler {

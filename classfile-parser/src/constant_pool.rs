@@ -104,51 +104,51 @@ gen_constant_pool! {
 gen_parseable! {
     #[derive(Debug, PartialEq)]
     pub struct NameInfo {
-        name_index: u16,
+        pub name_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct TypeRefInfo {
-        class_index: u16,
-        name_and_type_index: u16,
+        pub class_index: u16,
+        pub name_and_type_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct StringInfo {
-        string_index: u16,
+        pub string_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct NameAndTypeInfo {
-        name_index: u16,
-        descriptor_index: u16,
+        pub name_index: u16,
+        pub descriptor_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct MethodHandleInfo {
-        reference_kind: u8,
-        reference_index: u16,
+        pub reference_kind: u8,
+        pub reference_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct MethodTypeInfo {
-        descriptor_index: u16,
+        pub descriptor_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
     pub struct DynamicInfo {
-        bootstrap_method_attr_index: u16,
-        name_and_type_index: u16,
+        pub bootstrap_method_attr_index: u16,
+        pub name_and_type_index: u16,
     }
 
     #[derive(Debug, PartialEq)]
-    pub struct Integer{inner: u32,}
+    pub struct Integer{pub inner: u32,}
     #[derive(Debug, PartialEq)]
-    pub struct Float{inner: f32,}
+    pub struct Float{pub inner: f32,}
     #[derive(Debug, PartialEq)]
-    pub struct Long{inner: u64,}
+    pub struct Long{pub inner: u64,}
     #[derive(Debug, PartialEq)]
-    pub struct Double{inner: f64,}
+    pub struct Double{pub inner: f64,}
 }
 
 impl Integer {

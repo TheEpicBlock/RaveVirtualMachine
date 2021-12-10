@@ -19,22 +19,3 @@ pub fn get_code_attribute(method: &MethodInfo) -> Option<&CodeAttribute> {
     }
     None
 }
-
-pub fn find_main(class: &ClassFile) -> Option<&MethodInfo> {
-    for method in &class.methods {
-        let name = class.constant_pool.get_as_string(method.name_index);
-        let descriptor = class.constant_pool.get_as_string(method.descriptor);
-
-        if let Some(name) = name {
-            if name == "main" {
-                if let Some(descriptor) = descriptor {
-                    if descriptor == "([Ljava/lang/String;)V" {
-                        return Some(method);
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
