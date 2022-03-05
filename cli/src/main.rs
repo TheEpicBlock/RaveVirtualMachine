@@ -68,9 +68,9 @@ fn main() {
             let res = classfile_parser::parse(&mut reader);
             match res {
                 Ok(class) => {
-                    let loader = SimpleClassLoader::new(class)
+                    let loader = SimpleClassLoader::new(class);
                     let mut vm = VirtualMachine::new(loader, CraneliftJitCompiler::default());
-                    vm.start();
+                    vm.start("nl.theepicblock.Addition");
                 }
                 Err(err) => {
                     println!("Failed to parse file. Caused by:");

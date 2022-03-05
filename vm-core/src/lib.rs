@@ -2,16 +2,17 @@ pub mod classfile_util;
 mod class_store;
 pub mod class_loaders;
 
+use std::marker::PhantomData;
 use classfile_parser::class_file::ClassFile;
 use crate::class_store::ClassStore;
 
-pub struct VirtualMachine<'a, L: ClassLoader, T: JitCompiler> {
-    class_store: ClassStore<'a>,
+pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
+    class_store: ClassStore,
     class_loader: L,
     jit_engine: T,
 }
 
-impl<'a, L: ClassLoader, T: JitCompiler> VirtualMachine<'a, L, T> {
+impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
     pub fn new(class_loader: L, jit_engine: T) -> Self {
         VirtualMachine {
             class_store: ClassStore::default(),
@@ -23,7 +24,12 @@ impl<'a, L: ClassLoader, T: JitCompiler> VirtualMachine<'a, L, T> {
     pub fn start(&mut self, main: &str) -> Result<(),()> {
         let classfile = self.class_loader.load(main);
         let class = self.class_store.add_from_classfile(classfile)?;
-        class.find_main();
+        let main = class.find_main().ok_or(())?;
+
+        println!("{}", &main.name);
+        for inst in &main.code.code {
+            println!(" - {:?}", inst);
+        }
 
         Ok(())
     }
