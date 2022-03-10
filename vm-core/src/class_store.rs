@@ -1,14 +1,16 @@
 use std::borrow::Borrow;
 use std::iter::Map;
 use std::collections::HashMap;
+use std::str::Chars;
 use classfile_parser::class_file::{ClassFile, MethodInfo, MethodAccessFlags};
 use classfile_parser::constant_pool::ConstantPool;
 use classfile_parser::constant_pool::types;
 use bitflags::bitflags;
 use classfile_parser::attributes::CodeAttribute;
+use crate::class_store::DescriptorEntry::{Array, Boolean, Byte, Char, Double, Float, Int, Long, Short, Void};
 use crate::classfile_util::ConstantPoolExtensions;
 
-pub(crate) struct ClassStore {
+pub struct ClassStore {
     classes: HashMap<String, Class>,
 }
 
@@ -39,7 +41,7 @@ impl ClassStore {
     }
 }
 
-pub(crate) struct Class {
+pub struct Class {
     package: String,
     name: String,
     methods: Vec<Method>,
@@ -83,7 +85,7 @@ impl MethodFlags {
     }
 }
 
-pub(crate) enum Visibility {
+pub enum Visibility {
     Public,
     Protected,
     Private,
@@ -102,12 +104,27 @@ impl Visibility {
     }
 }
 
-pub(crate) struct Method {
+pub struct Method {
     pub name: String,
     pub descriptor: String,
     pub visibility: Visibility,
     pub flags: MethodFlags,
     pub code: CodeAttribute,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum DescriptorEntry {
+    Class(String),
+    Byte,
+    Char,
+    Double,
+    Float,
+    Int,
+    Long,
+    Short,
+    Boolean,
+    Void,
+    Array(Box<DescriptorEntry>)
 }
 
 impl Method {
@@ -144,5 +161,88 @@ impl Method {
 
     pub fn is_public(&self) -> bool {
         matches!(self.visibility, Visibility::Public)
+    }
+
+    pub fn parse_descriptors(&self) -> (Vec<DescriptorEntry>, DescriptorEntry) {
+        let mut chars =  &mut self.descriptor.chars();
+        assert_eq!(chars.next(), Some('('));
+
+        let mut acc = vec![];
+        loop {
+            let n = Method::parse_next_descriptor(&mut chars);
+            match n {
+                None => {
+                    return (acc, Method::parse_next_descriptor(&mut chars).unwrap());
+                }
+                Some(x) => {
+                    assert_ne!(x, Void, "Can't use void as a parameter");
+                    acc.push(x);
+                }
+            }
+        }
+    }
+
+    fn parse_next_descriptor(chars: &mut Chars) -> Option<DescriptorEntry> {
+        match chars.next() {
+            None => {
+                return None;
+            }
+            Some(x) => {
+                return Some(match x {
+                    'B' => Byte,
+                    'C' => Char,
+                    'D' => Double,
+                    'F' => Float,
+                    'I' => Int,
+                    'J' => Long,
+                    'L' => DescriptorEntry::Class(chars.take_while(|c| c != &';').collect()),
+                    'S' => Short,
+                    'Z' => Boolean,
+                    'V' => Void,
+                    '[' => Array(Box::new(Method::parse_next_descriptor(chars).unwrap())),
+                    ')' => {
+                        return None; // TODO this can be better
+                    }
+                    _ => {
+                        //TODO proper failure
+                        panic!("Invalid descriptor")
+                    }
+                })
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::class_store::*;
+    use crate::class_store::DescriptorEntry::Class;
+    use crate::Method;
+
+    #[test]
+    fn method_descriptor() {
+        let method = Method {
+            name: "".to_string(),
+            descriptor: "([Ljava/lang/String;DSZ)V".to_string(),
+            visibility: Visibility::Public,
+            flags: MethodFlags { bits: 0 },
+            code: CodeAttribute {
+                max_stack: 0,
+                max_locals: 0,
+                code: vec![],
+                exception_table: vec![],
+                attributes: vec![]
+            }
+        };
+
+        assert_eq!(method.parse_descriptors(), (
+            vec![
+                Array(Box::new(Class("java/lang/String".to_string()))),
+                Double,
+                Short,
+                Boolean
+            ],
+            Void
+            ));
     }
 }

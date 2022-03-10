@@ -4,6 +4,7 @@ use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
 use cranelift::prelude::{FunctionBuilderContext, AbiParam, FunctionBuilder};
 use classfile_parser::class_file::MethodInfo;
+use vm_core::class_store::{ClassStore, Method};
 
 pub struct CraneliftJitCompiler {
     /// The function builder context, which is reused across multiple
@@ -37,7 +38,18 @@ impl Default for CraneliftJitCompiler {
 }
 
 impl JitCompiler for CraneliftJitCompiler {
+    fn compile(&mut self, method: &Method, class_store: &ClassStore) {
+        let code = &method.code.code;
+        self.ctx.clear();
 
+        for inst in code {
+            match inst {
+                _ => {
+
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

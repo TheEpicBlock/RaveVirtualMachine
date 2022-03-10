@@ -1,10 +1,10 @@
 pub mod classfile_util;
-mod class_store;
+pub mod class_store;
 pub mod class_loaders;
 
 use std::marker::PhantomData;
 use classfile_parser::class_file::ClassFile;
-use crate::class_store::ClassStore;
+use crate::class_store::{ClassStore, Method};
 
 pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
     class_store: ClassStore,
@@ -30,6 +30,7 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
         for inst in &main.code.code {
             println!(" - {:?}", inst);
         }
+        assert_eq!(main.descriptor, "([Ljava/lang/String;)V");
 
         Ok(())
     }
@@ -40,7 +41,7 @@ pub trait ClassLoader {
 }
 
 pub trait JitCompiler {
-
+    fn compile(&mut self, method: &Method, class_store: &ClassStore);
 }
 
 #[cfg(test)]
