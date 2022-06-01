@@ -10,11 +10,11 @@ use classfile_parser::attributes::CodeAttribute;
 use crate::class_store::DescriptorEntry::{Array, Boolean, Byte, Char, Double, Float, Int, Long, Short, Void};
 use crate::classfile_util::ConstantPoolExtensions;
 
-pub struct ClassStore {
-    classes: HashMap<String, Class>,
+pub struct ClassStore<METHODJITDATA: Default> {
+    classes: HashMap<String, Class<METHODJITDATA>>,
 }
 
-impl Default for ClassStore {
+impl<METHODJITDATA: Default> Default for ClassStore<METHODJITDATA> {
     fn default() -> Self {
         ClassStore {
             classes: HashMap::new(),
@@ -22,8 +22,8 @@ impl Default for ClassStore {
     }
 }
 
-impl ClassStore {
-    pub fn add_from_classfile(&mut self, classfile: ClassFile) -> Result<&Class, ()> {
+impl<METHODJITDATA: Default> ClassStore<METHODJITDATA> {
+    pub fn add_from_classfile(&mut self, classfile: ClassFile) -> Result<&Class<METHODJITDATA>, ()> {
         let constant_pool = classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
@@ -41,15 +41,15 @@ impl ClassStore {
     }
 }
 
-pub struct Class {
+pub struct Class<METHODJITDATA: Default> {
     package: String,
     name: String,
-    methods: Vec<Method>,
+    methods: Vec<Method<METHODJITDATA>>,
 }
 
-impl Class {
+impl<METHODJITDATA: Default> Class<METHODJITDATA> {
     /// Locates a main method in this class if available
-    pub fn find_main(&self) -> Option<&Method> {
+    pub fn find_main(&self) -> Option<&Method<METHODJITDATA>> {
         self.methods.iter().find(|method| method.is_main())
     }
 }
@@ -104,12 +104,13 @@ impl Visibility {
     }
 }
 
-pub struct Method {
+pub struct Method<JITDATA: Default> {
     pub name: String,
     pub descriptor: String,
     pub visibility: Visibility,
     pub flags: MethodFlags,
     pub code: CodeAttribute,
+    pub jit_data: JITDATA,
 }
 
 #[derive(PartialEq, Debug)]
@@ -127,7 +128,7 @@ pub enum DescriptorEntry {
     Array(Box<DescriptorEntry>)
 }
 
-impl Method {
+impl<JITDATA: Default> Method<JITDATA> {
     pub fn from_info(method_info: MethodInfo, constant_pool: &impl ConstantPool) -> Result<Self, ()> {
         let name = constant_pool.get_as_string(method_info.name_index).ok_or(())?.to_string();
         let descriptor = constant_pool.get_as_string(method_info.descriptor).ok_or(())?.to_string();
@@ -147,6 +148,7 @@ impl Method {
             visibility,
             flags,
             code: code.unwrap(),
+            jit_data: JITDATA::default(),
         })
     }
 
@@ -169,10 +171,10 @@ impl Method {
 
         let mut acc = vec![];
         loop {
-            let n = Method::parse_next_descriptor(&mut chars);
+            let n = Method::<JITDATA>::parse_next_descriptor(&mut chars);
             match n {
                 None => {
-                    return (acc, Method::parse_next_descriptor(&mut chars).unwrap());
+                    return (acc, Method::<JITDATA>::parse_next_descriptor(&mut chars).unwrap());
                 }
                 Some(x) => {
                     assert_ne!(x, Void, "Can't use void as a parameter");
@@ -199,7 +201,7 @@ impl Method {
                     'S' => Short,
                     'Z' => Boolean,
                     'V' => Void,
-                    '[' => Array(Box::new(Method::parse_next_descriptor(chars).unwrap())),
+                    '[' => Array(Box::new(Method::<JITDATA>::parse_next_descriptor(chars).unwrap())),
                     ')' => {
                         return None; // TODO this can be better
                     }
@@ -232,7 +234,8 @@ mod tests {
                 code: vec![],
                 exception_table: vec![],
                 attributes: vec![]
-            }
+            },
+            jit_data: ()
         };
 
         assert_eq!(method.parse_descriptors(), (

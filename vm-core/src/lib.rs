@@ -7,7 +7,7 @@ use classfile_parser::class_file::ClassFile;
 use crate::class_store::{ClassStore, Method};
 
 pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
-    class_store: ClassStore,
+    class_store: ClassStore<T::MethodData>,
     class_loader: L,
     jit_engine: T,
 }
@@ -41,7 +41,9 @@ pub trait ClassLoader {
 }
 
 pub trait JitCompiler {
-    fn compile(&mut self, method: &Method, class_store: &ClassStore);
+    type MethodData: Default;
+
+    fn compile(&mut self, method: &Method<Self::MethodData>, class_store: &ClassStore<Self::MethodData>);
 }
 
 #[cfg(test)]

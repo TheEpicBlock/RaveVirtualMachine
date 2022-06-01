@@ -38,7 +38,9 @@ impl Default for CraneliftJitCompiler {
 }
 
 impl JitCompiler for CraneliftJitCompiler {
-    fn compile(&mut self, method: &Method, class_store: &ClassStore) {
+    type MethodData = MethodJitData;
+
+    fn compile(&mut self, method: &Method<Self::MethodData>, class_store: &ClassStore<Self::MethodData>) {
         let code = &method.code.code;
         self.ctx.clear();
 
@@ -48,6 +50,17 @@ impl JitCompiler for CraneliftJitCompiler {
 
                 }
             }
+        }
+    }
+}
+
+pub struct MethodJitData {
+
+}
+
+impl Default for MethodJitData {
+    fn default() -> Self {
+        Self {
         }
     }
 }
