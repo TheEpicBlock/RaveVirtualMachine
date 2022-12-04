@@ -54,12 +54,11 @@ impl JitCompiler for CraneliftJitCompiler {
     type ClassShell = CraneliftClass;
 
     fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<ClassId,()> {
-        let constant_pool = classfile.constant_pool;
+        let constant_pool = &classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
-        let name = fullname.rsplit_once("/").ok_or(())?;
         
-        self.classes.push(todo!());
+        self.classes.push(CraneliftClass::try_from(classfile)?);
         let id = ClassId(self.classes.len());
         self.namesToIds.insert(fullname, id);
 
@@ -71,11 +70,10 @@ impl JitCompiler for CraneliftJitCompiler {
     }
 
     fn run(&mut self, class: ClassId, method: Self::MethodId) {
-        
-    }
+        let class = &self.classes[class.0];
+        let method = &class.methods[method.0];
 
-    /*fn compile(&mut self, method: &Method<Self::MethodData>, class: &Class<Self::MethodData>, class_store: &ClassStore<Self::MethodData>) -> Self::Runner {
-        let code = &method.code.code;
+        let code = &method.data.code.code;
         self.ctx.clear();
         let constant_pool = &class.constant_pool;
 
@@ -97,9 +95,7 @@ impl JitCompiler for CraneliftJitCompiler {
                 }
             }
         }
-
-        RunnerStuff {}
-    }*/
+    }
 }
 
 pub struct CraneliftClass {
@@ -109,8 +105,10 @@ pub struct CraneliftClass {
     methods: Vec<CraneliftMethod>,
 }
 
+#[derive(Clone, Copy)]
 pub struct ClassId(usize);
 
+#[derive(Clone, Copy)]
 pub struct MethodId(usize);
 
 pub struct CraneliftMethod {
