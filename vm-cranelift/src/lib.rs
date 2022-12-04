@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
-use vm_core::{VirtualMachine, JitCompiler, ClassShell, MethodShell};
+use vm_core::{VirtualMachine, JitCompiler, ClassShell};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
 use cranelift::prelude::{FunctionBuilderContext, AbiParam, FunctionBuilder};
 use classfile_parser::class_file::{FieldInfo, MethodInfo, ClassFile};
-use vm_core::class_store::{Class, ClassStore, MethodData};
+use vm_core::class_store::{MethodData};
 use classfile_parser::bytecode::Instruction;
-use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry, self};
+use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
 use classfile_parser::constant_pool::types::FieldRef;
 use vm_core::classfile_util::ConstantPoolExtensions;
 
@@ -29,7 +29,8 @@ pub struct CraneliftJitCompiler {
     /// functions.
     module: JITModule,
 
-    classes: HashMap<String, CraneliftClass>,
+    namesToIds: HashMap<String, ClassId>,
+    classes: Vec<CraneliftClass>,
 }
 
 impl Default for CraneliftJitCompiler {
@@ -41,29 +42,35 @@ impl Default for CraneliftJitCompiler {
             ctx: module.make_context(),
             data_ctx: DataContext::new(),
             module,
-            classes: HashMap::new()
+            namesToIds: HashMap::new(),
+            classes: vec![],
         }
     }
 }
 
 impl JitCompiler for CraneliftJitCompiler {
-    type Class = CraneliftClass;
-    type Method = CraneliftMethod;
+    type ClassId = ClassId;
+    type MethodId = MethodId;
+    type ClassShell = CraneliftClass;
 
-    fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<(),()> {
+    fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<ClassId,()> {
         let constant_pool = classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
         let name = fullname.rsplit_once("/").ok_or(())?;
         
-        self.classes.insert(fullname, todo!());
+        self.classes.push(todo!());
+        let id = ClassId(self.classes.len());
+        self.namesToIds.insert(fullname, id);
+
+        return Ok(id);
     }
 
-    fn get(&self, name: &str) -> Result<&Self::Class,()> {
-        self.classes.get(name).ok_or(())
+    fn get(&self, name: &str) -> Result<&Self::ClassShell,()> {
+        Ok(&self.classes[self.namesToIds.get(name).ok_or(())?.0])
     }
 
-    fn run(&mut self, method: &Self::Method) {
+    fn run(&mut self, class: ClassId, method: Self::MethodId) {
         
     }
 
@@ -102,20 +109,21 @@ pub struct CraneliftClass {
     methods: Vec<CraneliftMethod>,
 }
 
+pub struct ClassId(usize);
+
+pub struct MethodId(usize);
+
 pub struct CraneliftMethod {
     pub data: MethodData
 }
 
-impl ClassShell for CraneliftClass {
-    type Method = CraneliftMethod;
+impl<'a> ClassShell for CraneliftClass {
+    type Method = MethodId;
 
-    fn find_main(&self) -> Option<&Self::Method> {
-        self.methods.iter().find(|m| m.data.is_main())
+    fn find_main(&self) -> Option<Self::Method> {
+        let methodIndex = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
+        Some(MethodId(methodIndex))
     }
-}
-
-impl MethodShell for CraneliftMethod {
-
 }
 
 impl TryFrom<ClassFile> for CraneliftClass {
@@ -127,11 +135,13 @@ impl TryFrom<ClassFile> for CraneliftClass {
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
         let name = fullname.rsplit_once("/").ok_or(())?;
         
+        let methods = classfile.methods.into_iter().map(|m| CraneliftMethod::from_info(m, &constant_pool).unwrap()).collect(); // FIXME something better than unwrap pls
+
         Ok(CraneliftClass {
-            constant_pool: classfile.constant_pool,
+            constant_pool: constant_pool,
             package: name.0.to_string(),
             name: name.1.to_string(),
-            methods: classfile.methods.into_iter().map(|m| CraneliftMethod::from_info(m, &constant_pool).unwrap()).collect() // FIXME something better than unwrap pls
+            methods: methods
         })
     }
 }

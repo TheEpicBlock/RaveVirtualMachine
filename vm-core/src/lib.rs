@@ -20,12 +20,12 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
 
     pub fn start(&mut self, main: &str) -> Result<(),()> {
         let classfile = self.class_loader.load(main);
-        self.jit_engine.load(classfile)?;
+        let class = self.jit_engine.load(classfile)?;
 
-        let class = self.jit_engine.get(main)?;
-        let main = class.find_main().ok_or(())?;
+        let classShell = self.jit_engine.get(main)?;
+        let main = classShell.find_main().ok_or(())?;
 
-        self.jit_engine.run(main);
+        self.jit_engine.run(class, main);
 
         Ok(())
     }
@@ -36,24 +36,21 @@ pub trait ClassLoader {
 }
 
 pub trait JitCompiler {
-    type Method: MethodShell;
-    type Class: ClassShell<Method = Self::Method>;
+    type MethodId;
+    type ClassId;
+    type ClassShell: ClassShell<Method = Self::MethodId>;
 
-    fn load(&mut self, class: ClassFile) -> Result<(),()>;
+    fn load(&mut self, class: ClassFile) -> Result<Self::ClassId,()>;
 
-    fn get(&self, name: &str) -> Result<&Self::Class, ()>;
+    fn get(&self, name: &str) -> Result<&Self::ClassShell, ()>;
 
-    fn run(&mut self, method: &Self::Method);
+    fn run(&mut self, class: Self::ClassId, method: Self::MethodId);
 }
 
 pub trait ClassShell {
-    type Method: MethodShell;
+    type Method;
 
-    fn find_main(&self) -> Option<&Self::Method>;
-}
-
-pub trait MethodShell {
-    fn run(self);
+    fn find_main(&self) -> Option<Self::Method>;
 }
 
 #[cfg(test)]
