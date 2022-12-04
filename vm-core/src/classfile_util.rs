@@ -1,4 +1,4 @@
-use classfile_parser::class_file::{ClassFile, MethodInfo};
+use classfile_parser::class_file::{MethodInfo};
 use classfile_parser::constant_pool::ConstantPool;
 use classfile_parser::constant_pool::types;
 use classfile_parser::attributes::{AttributeEntry, CodeAttribute};

@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
-use vm_core::{VirtualMachine, JitCompiler, ClassShell};
+use vm_core::{JitCompiler, ClassShell};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
-use cranelift::prelude::{FunctionBuilderContext, AbiParam, FunctionBuilder};
-use classfile_parser::class_file::{FieldInfo, MethodInfo, ClassFile};
+use cranelift::prelude::{FunctionBuilderContext};
+use classfile_parser::class_file::{MethodInfo, ClassFile};
 use vm_core::class_store::{MethodData};
 use classfile_parser::bytecode::Instruction;
 use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
-use classfile_parser::constant_pool::types::FieldRef;
 use vm_core::classfile_util::ConstantPoolExtensions;
 
 pub struct CraneliftJitCompiler {
@@ -29,7 +28,7 @@ pub struct CraneliftJitCompiler {
     /// functions.
     module: JITModule,
 
-    namesToIds: HashMap<String, ClassId>,
+    names_to_ids: HashMap<String, ClassId>,
     classes: Vec<CraneliftClass>,
 }
 
@@ -42,7 +41,7 @@ impl Default for CraneliftJitCompiler {
             ctx: module.make_context(),
             data_ctx: DataContext::new(),
             module,
-            namesToIds: HashMap::new(),
+            names_to_ids: HashMap::new(),
             classes: vec![],
         }
     }
@@ -60,7 +59,7 @@ impl JitCompiler for CraneliftJitCompiler {
         
         self.classes.push(CraneliftClass::try_from(classfile)?);
         let id = ClassId(self.classes.len()-1);
-        self.namesToIds.insert(fullname, id);
+        self.names_to_ids.insert(fullname, id);
 
         return Ok(id);
     }
@@ -119,8 +118,8 @@ impl<'a> ClassShell for CraneliftClass {
     type Method = MethodId;
 
     fn find_main(&self) -> Option<Self::Method> {
-        let methodIndex = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
-        Some(MethodId(methodIndex))
+        let method_index = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
+        Some(MethodId(method_index))
     }
 }
 
@@ -156,18 +155,18 @@ impl CraneliftMethod {
 mod tests {
     use cranelift::codegen;
     use cranelift_jit::{JITModule, JITBuilder};
-    use cranelift_module::{DataContext, Linkage, Module};
+    use cranelift_module::{Linkage, Module};
     use cranelift::prelude::{FunctionBuilder, FunctionBuilderContext, AbiParam, Variable, EntityRef, InstBuilder};
     use core::mem;
 
     #[test]
     fn basic_compile() {
-        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
         let mut module = JITModule::new(builder);
 
         let mut ctx = module.make_context();
         let mut function_builder_ctx = FunctionBuilderContext::new();
-        let mut data_ctx = DataContext::new();
+        //let data_ctx = DataContext::new();
 
         //---0.69.0
         let int = module.target_config().pointer_type();

@@ -6,7 +6,7 @@ pub struct SimpleClassLoader {
 }
 
 impl ClassLoader for SimpleClassLoader {
-    fn load(&self, class: &str) -> ClassFile {
+    fn load(&self, _: &str) -> ClassFile {
         self.base.clone()
     }
 }

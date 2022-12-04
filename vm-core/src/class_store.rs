@@ -1,10 +1,6 @@
-use std::borrow::Borrow;
-use std::iter::Map;
-use std::collections::HashMap;
 use std::str::Chars;
-use classfile_parser::class_file::{ClassFile, MethodInfo, MethodAccessFlags};
+use classfile_parser::class_file::{MethodInfo, MethodAccessFlags};
 use classfile_parser::constant_pool::ConstantPool;
-use classfile_parser::constant_pool::types;
 use bitflags::bitflags;
 use classfile_parser::attributes::CodeAttribute;
 use crate::class_store::DescriptorEntry::{Array, Boolean, Byte, Char, Double, Float, Int, Long, Short, Void};
