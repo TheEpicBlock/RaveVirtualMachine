@@ -22,7 +22,7 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
         let classfile = self.class_loader.load(main);
         let class = self.jit_engine.load(classfile)?;
 
-        let classShell = self.jit_engine.get(main)?;
+        let classShell = self.jit_engine.get(class)?;
         let main = classShell.find_main().ok_or(())?;
 
         self.jit_engine.run(class, main);
@@ -36,13 +36,13 @@ pub trait ClassLoader {
 }
 
 pub trait JitCompiler {
-    type MethodId;
-    type ClassId;
+    type MethodId: Copy + Clone;
+    type ClassId: Copy + Clone;
     type ClassShell: ClassShell<Method = Self::MethodId>;
 
     fn load(&mut self, class: ClassFile) -> Result<Self::ClassId,()>;
 
-    fn get(&self, name: &str) -> Result<&Self::ClassShell, ()>;
+    fn get(&self, id: Self::ClassId) -> Result<&Self::ClassShell, ()>;
 
     fn run(&mut self, class: Self::ClassId, method: Self::MethodId);
 }

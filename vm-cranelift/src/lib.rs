@@ -59,14 +59,14 @@ impl JitCompiler for CraneliftJitCompiler {
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
         
         self.classes.push(CraneliftClass::try_from(classfile)?);
-        let id = ClassId(self.classes.len());
+        let id = ClassId(self.classes.len()-1);
         self.namesToIds.insert(fullname, id);
 
         return Ok(id);
     }
 
-    fn get(&self, name: &str) -> Result<&Self::ClassShell,()> {
-        Ok(&self.classes[self.namesToIds.get(name).ok_or(())?.0])
+    fn get(&self, id: ClassId) -> Result<&Self::ClassShell,()> {
+        Ok(&self.classes[id.0])
     }
 
     fn run(&mut self, class: ClassId, method: Self::MethodId) {

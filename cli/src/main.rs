@@ -70,7 +70,7 @@ fn main() {
                 Ok(class) => {
                     let loader = SimpleClassLoader::new(class);
                     let mut vm = VirtualMachine::new(loader, CraneliftJitCompiler::default());
-                    vm.start("nl.theepicblock.Addition");
+                    vm.start("nl.theepicblock.Addition").unwrap();
                 }
                 Err(err) => {
                     println!("Failed to parse file. Caused by:");
