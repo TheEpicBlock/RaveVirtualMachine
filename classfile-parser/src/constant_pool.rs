@@ -79,7 +79,7 @@ macro_rules! gen_constant_pool {
 
 gen_constant_pool! {
     /// See: https://docs.oracle.com/javase/specs/jvms/se16/html/jvms-4.html#jvms-4.4.1
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub enum ConstantPoolTypes {
         Class(NameInfo) = 7,
         FieldRef(TypeRefInfo) = 9,
@@ -102,52 +102,52 @@ gen_constant_pool! {
 }
 
 gen_parseable! {
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct NameInfo {
         pub name_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct TypeRefInfo {
         pub class_index: u16,
         pub name_and_type_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct StringInfo {
         pub string_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct NameAndTypeInfo {
         pub name_index: u16,
         pub descriptor_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct MethodHandleInfo {
         pub reference_kind: u8,
         pub reference_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct MethodTypeInfo {
         pub descriptor_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct DynamicInfo {
         pub bootstrap_method_attr_index: u16,
         pub name_and_type_index: u16,
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct Integer{pub inner: u32,}
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct Float{pub inner: f32,}
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct Long{pub inner: u64,}
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Clone)]
     pub struct Double{pub inner: f64,}
 }
 
@@ -175,7 +175,7 @@ impl Double {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Utf8Info{pub inner: String,}
 
 impl ByteParseable for Utf8Info {

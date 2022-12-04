@@ -35,7 +35,7 @@ macro_rules! gen_bytecode_enum {
 }
 
 gen_bytecode_enum! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     #[allow(non_camel_case_types)]
     pub enum Instruction {
         ///Load onto the stack a reference from an array

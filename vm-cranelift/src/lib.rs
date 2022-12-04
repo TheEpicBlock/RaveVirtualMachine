@@ -1,10 +1,16 @@
-use vm_core::{VirtualMachine, JitCompiler};
+use std::collections::HashMap;
+
+use vm_core::{VirtualMachine, JitCompiler, ClassShell, MethodShell};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
 use cranelift::prelude::{FunctionBuilderContext, AbiParam, FunctionBuilder};
-use classfile_parser::class_file::MethodInfo;
-use vm_core::class_store::{ClassStore, Method};
+use classfile_parser::class_file::{FieldInfo, MethodInfo, ClassFile};
+use vm_core::class_store::{Class, ClassStore, MethodData};
+use classfile_parser::bytecode::Instruction;
+use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry, self};
+use classfile_parser::constant_pool::types::FieldRef;
+use vm_core::classfile_util::ConstantPoolExtensions;
 
 pub struct CraneliftJitCompiler {
     /// The function builder context, which is reused across multiple
@@ -22,6 +28,8 @@ pub struct CraneliftJitCompiler {
     /// The module, with the jit backend, which manages the JIT'd
     /// functions.
     module: JITModule,
+
+    classes: HashMap<String, CraneliftClass>,
 }
 
 impl Default for CraneliftJitCompiler {
@@ -33,35 +41,106 @@ impl Default for CraneliftJitCompiler {
             ctx: module.make_context(),
             data_ctx: DataContext::new(),
             module,
+            classes: HashMap::new()
         }
     }
 }
 
 impl JitCompiler for CraneliftJitCompiler {
-    type MethodData = MethodJitData;
+    type Class = CraneliftClass;
+    type Method = CraneliftMethod;
 
-    fn compile(&mut self, method: &Method<Self::MethodData>, class_store: &ClassStore<Self::MethodData>) {
+    fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<(),()> {
+        let constant_pool = classfile.constant_pool;
+        let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
+        let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
+        let name = fullname.rsplit_once("/").ok_or(())?;
+        
+        self.classes.insert(fullname, todo!());
+    }
+
+    fn get(&self, name: &str) -> Result<&Self::Class,()> {
+        self.classes.get(name).ok_or(())
+    }
+
+    fn run(&mut self, method: &Self::Method) {
+        
+    }
+
+    /*fn compile(&mut self, method: &Method<Self::MethodData>, class: &Class<Self::MethodData>, class_store: &ClassStore<Self::MethodData>) -> Self::Runner {
         let code = &method.code.code;
         self.ctx.clear();
+        let constant_pool = &class.constant_pool;
 
         for inst in code {
             match inst {
+                Instruction::GetStatic(x) => {
+                    let field = constant_pool.get_as::<types::FieldRef>(*x).unwrap(); // FIXME
+                    let class = constant_pool.get_as::<types::Class>(field.class_index).unwrap();
+                    let name_and_type = constant_pool.get_as::<types::NameAndTypeInfo>(field.name_and_type_index).unwrap();
+
+                    let class_name = constant_pool.get_as_string(class.name_index).unwrap();
+                    let field_name = constant_pool.get_as_string(name_and_type.name_index).unwrap();
+                    let field_desc = constant_pool.get_as_string(name_and_type.descriptor_index).unwrap();
+
+                    println!("GetStatic: {class_name}#{field_name}{field_desc}");
+                },
                 _ => {
 
                 }
             }
         }
+
+        RunnerStuff {}
+    }*/
+}
+
+pub struct CraneliftClass {
+    constant_pool: Vec<ConstantPoolEntry>,
+    package: String,
+    name: String,
+    methods: Vec<CraneliftMethod>,
+}
+
+pub struct CraneliftMethod {
+    pub data: MethodData
+}
+
+impl ClassShell for CraneliftClass {
+    type Method = CraneliftMethod;
+
+    fn find_main(&self) -> Option<&Self::Method> {
+        self.methods.iter().find(|m| m.data.is_main())
     }
 }
 
-pub struct MethodJitData {
+impl MethodShell for CraneliftMethod {
 
 }
 
-impl Default for MethodJitData {
-    fn default() -> Self {
-        Self {
-        }
+impl TryFrom<ClassFile> for CraneliftClass {
+    type Error = ();
+
+    fn try_from(classfile: ClassFile) -> Result<Self, Self::Error> {
+        let constant_pool = classfile.constant_pool;
+        let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
+        let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
+        let name = fullname.rsplit_once("/").ok_or(())?;
+        
+        Ok(CraneliftClass {
+            constant_pool: classfile.constant_pool,
+            package: name.0.to_string(),
+            name: name.1.to_string(),
+            methods: classfile.methods.into_iter().map(|m| CraneliftMethod::from_info(m, &constant_pool).unwrap()).collect() // FIXME something better than unwrap pls
+        })
+    }
+}
+
+impl CraneliftMethod {
+    fn from_info(info: MethodInfo, constant_pool: &impl ConstantPool) -> Result<Self, ()> {
+        Ok(CraneliftMethod {  
+            data: MethodData::from_info(info, constant_pool)?
+        })
     }
 }
 

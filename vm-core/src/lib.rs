@@ -2,12 +2,10 @@ pub mod classfile_util;
 pub mod class_store;
 pub mod class_loaders;
 
-use std::marker::PhantomData;
 use classfile_parser::class_file::ClassFile;
-use crate::class_store::{ClassStore, Method};
+use crate::class_store::{MethodData};
 
 pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
-    class_store: ClassStore<T::MethodData>,
     class_loader: L,
     jit_engine: T,
 }
@@ -15,7 +13,6 @@ pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
 impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
     pub fn new(class_loader: L, jit_engine: T) -> Self {
         VirtualMachine {
-            class_store: ClassStore::default(),
             class_loader,
             jit_engine,
         }
@@ -23,27 +20,40 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
 
     pub fn start(&mut self, main: &str) -> Result<(),()> {
         let classfile = self.class_loader.load(main);
-        let class = self.class_store.add_from_classfile(classfile)?;
+        self.jit_engine.load(classfile)?;
+
+        let class = self.jit_engine.get(main)?;
         let main = class.find_main().ok_or(())?;
 
-        println!("{}", &main.name);
-        for inst in &main.code.code {
-            println!(" - {:?}", inst);
-        }
-        assert_eq!(main.descriptor, "([Ljava/lang/String;)V");
+        self.jit_engine.run(main);
 
         Ok(())
     }
 }
 
 pub trait ClassLoader {
-    fn load(&mut self, class: &str) -> ClassFile;
+    fn load(&self, class: &str) -> ClassFile;
 }
 
 pub trait JitCompiler {
-    type MethodData: Default;
+    type Method: MethodShell;
+    type Class: ClassShell<Method = Self::Method>;
 
-    fn compile(&mut self, method: &Method<Self::MethodData>, class_store: &ClassStore<Self::MethodData>);
+    fn load(&mut self, class: ClassFile) -> Result<(),()>;
+
+    fn get(&self, name: &str) -> Result<&Self::Class, ()>;
+
+    fn run(&mut self, method: &Self::Method);
+}
+
+pub trait ClassShell {
+    type Method: MethodShell;
+
+    fn find_main(&self) -> Option<&Self::Method>;
+}
+
+pub trait MethodShell {
+    fn run(self);
 }
 
 #[cfg(test)]

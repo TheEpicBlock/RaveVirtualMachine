@@ -55,7 +55,7 @@ macro_rules! gen_attribute_parser {
 }
 
 gen_attribute_parser!(
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub enum AttributeEntry {
         ConstantValue(ConstantValueAttribute) = "ConstantValue",
         Code(CodeAttribute) = "Code",
@@ -79,13 +79,13 @@ pub fn parse_attribute_array(bytes: &mut impl Read, pool: &impl ConstantPool) ->
 // Attributes
 
 gen_parseable! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct ConstantValueAttribute {
         value_index: u16,
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeAttribute {
     pub max_stack: u16,
     pub max_locals: u16,

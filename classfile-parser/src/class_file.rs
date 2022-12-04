@@ -52,7 +52,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClassFile {
     pub minor_version: u16,
     pub major_version: u16,
@@ -66,7 +66,7 @@ pub struct ClassFile {
     pub attributes: Vec<AttributeEntry>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FieldInfo {
     pub access_flags: FieldAccessFlags,
     pub name_index: u16,
@@ -75,7 +75,7 @@ pub struct FieldInfo {
     pub attributes: Vec<AttributeEntry>
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MethodInfo {
     pub access_flags: MethodAccessFlags,
     pub name_index: u16,

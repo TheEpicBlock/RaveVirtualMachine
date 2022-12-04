@@ -8,7 +8,7 @@ mod byte_util;
 pub mod class_file;
 pub mod constant_pool;
 pub mod attributes;
-mod bytecode;
+pub mod bytecode;
 
 #[macro_use]
 extern crate bitflags;
