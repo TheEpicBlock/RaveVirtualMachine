@@ -9,6 +9,7 @@ macro_rules! gen_bytecode_enum {
             $(
                 $($(#[$InstrMeta:meta])* $Instr:ident$(($($innerType:ident),*))? = $InstrHex:literal)?
                 $(|$Result:ident$(($($Value:literal),*))? = $PHInstrHex:literal)?
+                $(&$NameInternal:ident$(($($ValueInternal:ident),*))?)?
             ,)*
         }
     ) => {
@@ -16,6 +17,9 @@ macro_rules! gen_bytecode_enum {
         pub enum $Name {
             $(
                 $($(#[$InstrMeta])* $Instr$(($($innerType),+))?,)?
+            )*
+            $(
+                $($NameInternal$(($($ValueInternal),+))?,)?
             )*
         }
 
@@ -72,8 +76,9 @@ gen_bytecode_enum! {
         DAStore = 0x52,
         DCmpG = 0x98,
         DCmpL = 0x97,
-        DConst_0 = 0x0e,
-        DConst_1 = 0x0f,
+        &DConst(f64),
+        |DConst(0.0) = 0x0e,
+        |DConst(1.0) = 0x0f,
         DDiv = 0x6f,
         DLoad(u8) = 0x18,
         |DLoad(0) = 0x26,
@@ -104,9 +109,10 @@ gen_bytecode_enum! {
         FAstore = 0x51,
         FCmpG = 0x96,
         FCmpL = 0x95,
-        FConst_0 = 0x0b,
-        FConst_1 = 0x0c,
-        FConst_2 = 0x0d,
+        &FConst(f32),
+        |FConst(0.0) = 0x0b,
+        |FConst(1.0) = 0x0c,
+        |FConst(2.0) = 0x0d,
         FDiv = 0x6e,
         FLoad(u16) = 0x17,
         |FLoad(0) = 0x22,
@@ -137,13 +143,14 @@ gen_bytecode_enum! {
         IALoad = 0x2e,
         IAnd = 0x7e,
         IAstore = 0x4f,
-        IConst_m1 = 0x02,
-        IConst_0 = 0x03,
-        IConst_1 = 0x04,
-        IConst_2 = 0x05,
-        IConst_3 = 0x06,
-        IConst_4 = 0x07,
-        IConst_5 = 0x08,
+        &IConst(i32),
+        |IConst(-1) = 0x02,
+        |IConst(0) = 0x03,
+        |IConst(1) = 0x04,
+        |IConst(2) = 0x05,
+        |IConst(3) = 0x06,
+        |IConst(4) = 0x07,
+        |IConst(5) = 0x08,
         IDiv = 0x6c,
         IfACmpEq(u16) = 0xa5,
         IfACmpNe(u16) = 0xa6,
@@ -200,8 +207,9 @@ gen_bytecode_enum! {
         LanD = 0x7f,
         LAStore = 0x50,
         LCmp = 0x94,
-        LConst_0 = 0x09,
-        LConst_1 = 0x0a,
+        &LConst(i64),
+        |LConst(0) = 0x09,
+        |LConst(1) = 0x0a,
         LdC(u8) = 0x12,
         LdC_w(u16) = 0x13,
         LdC2_w(u16) = 0x14,
@@ -254,6 +262,13 @@ mod tests {
     use crate::byte_util::ByteParseable;
     use crate::ClassParseError;
     use assert_matches::assert_matches;
+
+    #[test]
+    fn parse_iconst0() {
+        let bytes = vec![0x03];
+        let instr = Instruction::parse_bytes(&bytes).unwrap();
+        assert_matches!(instr, Instruction::IConst(0));
+    }
 
     #[test]
     fn parse_aload0() {
