@@ -4,4 +4,5 @@ members = [
     "cli",
     "vm-core",
     "vm-cranelift",
+    "testsuite"
 ]

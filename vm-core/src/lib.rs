@@ -29,6 +29,18 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
 
         Ok(())
     }
+
+    pub fn run(&mut self, class: &str, name: &str, descriptor: &str) -> Result<(),()> {
+        let classfile = self.class_loader.load(class);
+        let class = self.jit_engine.load(classfile)?;
+
+        let classShell = self.jit_engine.get(class)?;
+        let main = classShell.get_method(name, descriptor).unwrap();
+
+        self.jit_engine.run(class, main);
+
+        Ok(())
+    }
 }
 
 pub trait ClassLoader {
@@ -51,6 +63,8 @@ pub trait ClassShell {
     type Method;
 
     fn find_main(&self) -> Option<Self::Method>;
+
+    fn get_method(&self, name: &str, descriptor: &str) -> Option<Self::Method>;
 }
 
 #[cfg(test)]

@@ -1,0 +1,11 @@
+[package]
+name = "testsuite"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vm-core = { path = "../vm-core" }
+classfile-parser = { path = "../classfile-parser" }
+vm-cranelift = { path = "../vm-cranelift" }

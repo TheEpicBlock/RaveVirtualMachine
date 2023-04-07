@@ -128,18 +128,21 @@ impl JitCompiler for CraneliftJitCompiler {
                     let x = *x as i64;
                     let value = function_builder.ins().iconst(DescriptorEntry::Int.toType(target), x);
                     let const_var = createVar();
+                    function_builder.declare_var(const_var, DescriptorEntry::Int.toType(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::FConst(x) => {
                     let value = function_builder.ins().f32const(*x);
                     let const_var = createVar();
+                    function_builder.declare_var(const_var, DescriptorEntry::Float.toType(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::DConst(x) => {
                     let value = function_builder.ins().f64const(*x);
                     let const_var = createVar();
+                    function_builder.declare_var(const_var, DescriptorEntry::Double.toType(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
@@ -189,6 +192,11 @@ impl<'a> ClassShell for CraneliftClass {
         let method_index = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
         Some(MethodId(method_index))
     }
+
+    fn get_method(&self, name: &str, descriptor: &str) -> Option<Self::Method> {
+        let method_index = self.methods.iter().enumerate().find(|m| m.1.data.name == name && m.1.data.descriptor == descriptor)?.0;
+        Some(MethodId(method_index))
+    }
 }
 
 trait IntoType {
@@ -223,7 +231,7 @@ impl TryFrom<ClassFile> for CraneliftClass {
         let constant_pool = classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
-        let name = fullname.rsplit_once("/").ok_or(())?;
+        let name = fullname.rsplit_once("/").unwrap_or(("", &fullname));
         
         let methods = classfile.methods.into_iter().map(|m| CraneliftMethod::from_info(m, &constant_pool).unwrap()).collect(); // FIXME something better than unwrap pls
 

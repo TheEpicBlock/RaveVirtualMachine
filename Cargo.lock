@@ -398,6 +398,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "testsuite"
+version = "0.1.0"
+dependencies = [
+ "classfile-parser",
+ "vm-core",
+ "vm-cranelift",
+]
+
+[[package]]
 name = "textwrap"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
