@@ -14,7 +14,7 @@ impl ClassLoader for SimpleClassLoader {
 impl SimpleClassLoader {
     pub fn new(base: ClassFile) -> Self {
         SimpleClassLoader {
-            base: base
+            base
         }
     }
 }

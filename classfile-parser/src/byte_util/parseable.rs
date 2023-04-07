@@ -55,7 +55,7 @@ macro_rules! gen_parseable {
             }
 
             impl ByteParseable for $Name {
-                fn parse(bytes: &mut impl Read) -> Result<Self, crate::ClassParseError> {
+                fn parse(bytes: &mut impl Read) -> Result<Self, $crate::ClassParseError> {
                     Ok(
                         Self {
                             $(

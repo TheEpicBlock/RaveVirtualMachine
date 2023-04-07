@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use cranelift::codegen::ir::Constant;
+
 use vm_core::{JitCompiler, ClassShell};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
-use cranelift::prelude::{FunctionBuilderContext, AbiParam, Type, FunctionBuilder, Variable, EntityRef, InstBuilder};
+use cranelift::prelude::{FunctionBuilderContext, AbiParam, FunctionBuilder, Variable, EntityRef, InstBuilder};
 use cranelift::prelude::types as ctypes;
 use classfile_parser::class_file::{MethodInfo, ClassFile};
 use cranelift::prelude::isa::TargetFrontendConfig;
@@ -84,14 +84,14 @@ impl JitCompiler for CraneliftJitCompiler {
         let target = self.module.target_config();
         
         let mut variable_counter = 0;
-        let mut createVar = || {
+        let mut create_var = || {
             variable_counter += 1;
             Variable::new(variable_counter)
         };
 
         let mut local_variables = Vec::new(); // TODO this isn't correct lmao
-        for i in 0..50 {
-            local_variables.push(createVar());
+        for _ in 0..50 {
+            local_variables.push(create_var());
         }
 
         let (args, return_value) = method.data.parse_descriptors();
@@ -99,9 +99,9 @@ impl JitCompiler for CraneliftJitCompiler {
             ctx_func.signature.params.push(AbiParam::new(target.pointer_type()));
         }
         for arg in &args {
-            ctx_func.signature.params.push(arg.toAbi(target));
+            ctx_func.signature.params.push(arg.to_abi(target));
         }
-        ctx_func.signature.returns.push(return_value.toAbi(target));
+        ctx_func.signature.returns.push(return_value.to_abi(target));
 
         let mut function_builder = FunctionBuilder::new(ctx_func, &mut function_builder_ctx);
         let mut i = 0;
@@ -110,7 +110,7 @@ impl JitCompiler for CraneliftJitCompiler {
             i += 1;
         }
         for arg in &args {
-            function_builder.declare_var(local_variables[i], arg.toType(target));
+            function_builder.declare_var(local_variables[i], arg.to_type(target));
             i += 1;
         }
 
@@ -126,23 +126,23 @@ impl JitCompiler for CraneliftJitCompiler {
             match inst {
                 Instruction::IConst(x) => {
                     let x = *x as i64;
-                    let value = function_builder.ins().iconst(DescriptorEntry::Int.toType(target), x);
-                    let const_var = createVar();
-                    function_builder.declare_var(const_var, DescriptorEntry::Int.toType(target));
+                    let value = function_builder.ins().iconst(DescriptorEntry::Int.to_type(target), x);
+                    let const_var = create_var();
+                    function_builder.declare_var(const_var, DescriptorEntry::Int.to_type(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::FConst(x) => {
                     let value = function_builder.ins().f32const(*x);
-                    let const_var = createVar();
-                    function_builder.declare_var(const_var, DescriptorEntry::Float.toType(target));
+                    let const_var = create_var();
+                    function_builder.declare_var(const_var, DescriptorEntry::Float.to_type(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::DConst(x) => {
                     let value = function_builder.ins().f64const(*x);
-                    let const_var = createVar();
-                    function_builder.declare_var(const_var, DescriptorEntry::Double.toType(target));
+                    let const_var = create_var();
+                    function_builder.declare_var(const_var, DescriptorEntry::Double.to_type(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
@@ -200,14 +200,14 @@ impl<'a> ClassShell for CraneliftClass {
 }
 
 trait IntoType {
-    fn toType(&self, target: TargetFrontendConfig) -> ctypes::Type;
-    fn toAbi(&self, target: TargetFrontendConfig) -> AbiParam {
-        AbiParam::new(self.toType(target))
+    fn to_type(&self, target: TargetFrontendConfig) -> ctypes::Type;
+    fn to_abi(&self, target: TargetFrontendConfig) -> AbiParam {
+        AbiParam::new(self.to_type(target))
     }
 }
 
 impl IntoType for DescriptorEntry {
-    fn toType(&self, target: TargetFrontendConfig) -> ctypes::Type {
+    fn to_type(&self, target: TargetFrontendConfig) -> ctypes::Type {
         match self {
             DescriptorEntry::Class(_) => target.pointer_type(),
             DescriptorEntry::Byte => ctypes::I8,

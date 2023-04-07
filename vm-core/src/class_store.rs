@@ -115,15 +115,15 @@ impl MethodData {
     }
 
     pub fn parse_descriptors(&self) -> (Vec<DescriptorEntry>, DescriptorEntry) {
-        let mut chars =  &mut self.descriptor.chars();
+        let chars =  &mut self.descriptor.chars();
         assert_eq!(chars.next(), Some('('));
 
         let mut acc = vec![];
         loop {
-            let n = MethodData::parse_next_descriptor(&mut chars);
+            let n = MethodData::parse_next_descriptor(chars);
             match n {
                 None => {
-                    return (acc, MethodData::parse_next_descriptor(&mut chars).unwrap());
+                    return (acc, MethodData::parse_next_descriptor(chars).unwrap());
                 }
                 Some(x) => {
                     assert_ne!(x, Void, "Can't use void as a parameter");
@@ -136,10 +136,10 @@ impl MethodData {
     fn parse_next_descriptor(chars: &mut Chars) -> Option<DescriptorEntry> {
         match chars.next() {
             None => {
-                return None;
+                None
             }
             Some(x) => {
-                return Some(match x {
+                Some(match x {
                     'B' => Byte,
                     'C' => Char,
                     'D' => Double,
@@ -168,7 +168,7 @@ impl MethodData {
 mod tests {
     use crate::class_store::*;
     use crate::class_store::DescriptorEntry::Class;
-    use crate::MethodData;
+    use crate::class_store::MethodData;
 
     #[test]
     fn method_descriptor() {

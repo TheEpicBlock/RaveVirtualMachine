@@ -3,7 +3,6 @@ pub mod class_store;
 pub mod class_loaders;
 
 use classfile_parser::class_file::ClassFile;
-use crate::class_store::{MethodData};
 
 pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
     class_loader: L,
@@ -22,8 +21,8 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
         let classfile = self.class_loader.load(main);
         let class = self.jit_engine.load(classfile)?;
 
-        let classShell = self.jit_engine.get(class)?;
-        let main = classShell.find_main().ok_or(())?;
+        let class_shell = self.jit_engine.get(class)?;
+        let main = class_shell.find_main().ok_or(())?;
 
         self.jit_engine.run(class, main);
 
@@ -34,8 +33,8 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
         let classfile = self.class_loader.load(class);
         let class = self.jit_engine.load(classfile)?;
 
-        let classShell = self.jit_engine.get(class)?;
-        let main = classShell.get_method(name, descriptor).unwrap();
+        let class_shell = self.jit_engine.get(class)?;
+        let main = class_shell.get_method(name, descriptor).unwrap();
 
         self.jit_engine.run(class, main);
 

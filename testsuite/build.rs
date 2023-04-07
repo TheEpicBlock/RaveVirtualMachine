@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use std::env;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::fmt::Write;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,7 +21,7 @@ fn main() {
 
     let mut tests = vec![];
     let testdir = Path::new("tests");
-    let test_names: HashSet<_> = fs::read_dir(&testdir).unwrap()
+    let test_names: HashSet<_> = fs::read_dir(testdir).unwrap()
         .map(|file| file.unwrap().path().file_stem().unwrap().to_owned())
         .collect();
 
@@ -58,6 +58,7 @@ fn main() {
         let java_file = java_file.to_str().unwrap();
 
         write!(output, r#"
+            #[cfg(test)]
             mod {test_name} {{
                 #[test]
                 fn test() {{
