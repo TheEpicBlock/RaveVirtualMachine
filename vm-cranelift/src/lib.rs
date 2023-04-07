@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
+use cranelift::codegen::ir::Constant;
 use vm_core::{JitCompiler, ClassShell};
 use cranelift_jit::{JITModule, JITBuilder};
 use cranelift_module::{DataContext, Module};
 use cranelift::codegen;
-use cranelift::prelude::{FunctionBuilderContext};
+use cranelift::prelude::{FunctionBuilderContext, AbiParam, Type, FunctionBuilder, Variable, EntityRef, InstBuilder};
+use cranelift::prelude::types as ctypes;
 use classfile_parser::class_file::{MethodInfo, ClassFile};
-use vm_core::class_store::{MethodData};
+use cranelift::prelude::isa::TargetFrontendConfig;
+use vm_core::class_store::{MethodData, DescriptorEntry};
 use classfile_parser::bytecode::Instruction;
 use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
 use vm_core::classfile_util::ConstantPoolExtensions;
@@ -76,8 +79,70 @@ impl JitCompiler for CraneliftJitCompiler {
         self.ctx.clear();
         let constant_pool = &class.constant_pool;
 
+        let mut function_builder_ctx = FunctionBuilderContext::new();
+        let ctx_func = &mut self.ctx.func;
+        let target = self.module.target_config();
+        
+        let mut variable_counter = 0;
+        let mut createVar = || {
+            variable_counter += 1;
+            Variable::new(variable_counter)
+        };
+
+        let mut local_variables = Vec::new(); // TODO this isn't correct lmao
+        for i in 0..50 {
+            local_variables.push(createVar());
+        }
+
+        let (args, return_value) = method.data.parse_descriptors();
+        if !method.data.is_static() {
+            ctx_func.signature.params.push(AbiParam::new(target.pointer_type()));
+        }
+        for arg in &args {
+            ctx_func.signature.params.push(arg.toAbi(target));
+        }
+        ctx_func.signature.returns.push(return_value.toAbi(target));
+
+        let mut function_builder = FunctionBuilder::new(ctx_func, &mut function_builder_ctx);
+        let mut i = 0;
+        if !method.data.is_static() {
+            function_builder.declare_var(local_variables[i], target.pointer_type());
+            i += 1;
+        }
+        for arg in &args {
+            function_builder.declare_var(local_variables[i], arg.toType(target));
+            i += 1;
+        }
+
+        let entry_block = function_builder.create_block();
+        function_builder.append_block_params_for_function_params(entry_block);
+        function_builder.switch_to_block(entry_block);
+        function_builder.seal_block(entry_block);
+        function_builder.block_params(entry_block);
+
+        let mut stack = Vec::new();
+
         for inst in code {
             match inst {
+                Instruction::IConst(x) => {
+                    let x = *x as i64;
+                    let value = function_builder.ins().iconst(DescriptorEntry::Int.toType(target), x);
+                    let const_var = createVar();
+                    function_builder.def_var(const_var, value);
+                    stack.push(const_var);
+                }
+                Instruction::FConst(x) => {
+                    let value = function_builder.ins().f32const(*x);
+                    let const_var = createVar();
+                    function_builder.def_var(const_var, value);
+                    stack.push(const_var);
+                }
+                Instruction::DConst(x) => {
+                    let value = function_builder.ins().f64const(*x);
+                    let const_var = createVar();
+                    function_builder.def_var(const_var, value);
+                    stack.push(const_var);
+                }
                 Instruction::GetStatic(x) => {
                     let field = constant_pool.get_as::<types::FieldRef>(*x).unwrap(); // FIXME
                     let class = constant_pool.get_as::<types::Class>(field.class_index).unwrap();
@@ -88,6 +153,9 @@ impl JitCompiler for CraneliftJitCompiler {
                     let field_desc = constant_pool.get_as_string(name_and_type.descriptor_index).unwrap();
 
                     println!("GetStatic: {class_name}#{field_name}{field_desc}");
+                },
+                Instruction::Return => {
+                    function_builder.ins().return_(&[]);
                 },
                 _ => {
 
@@ -120,6 +188,31 @@ impl<'a> ClassShell for CraneliftClass {
     fn find_main(&self) -> Option<Self::Method> {
         let method_index = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
         Some(MethodId(method_index))
+    }
+}
+
+trait IntoType {
+    fn toType(&self, target: TargetFrontendConfig) -> ctypes::Type;
+    fn toAbi(&self, target: TargetFrontendConfig) -> AbiParam {
+        AbiParam::new(self.toType(target))
+    }
+}
+
+impl IntoType for DescriptorEntry {
+    fn toType(&self, target: TargetFrontendConfig) -> ctypes::Type {
+        match self {
+            DescriptorEntry::Class(_) => target.pointer_type(),
+            DescriptorEntry::Byte => ctypes::I8,
+            DescriptorEntry::Char => ctypes::I8,
+            DescriptorEntry::Double => ctypes::F64,
+            DescriptorEntry::Float => ctypes::F32,
+            DescriptorEntry::Int => ctypes::I32,
+            DescriptorEntry::Long => ctypes::I64,
+            DescriptorEntry::Short => ctypes::I16,
+            DescriptorEntry::Boolean => ctypes::B1,
+            DescriptorEntry::Void => ctypes::INVALID,
+            DescriptorEntry::Array(_) => target.pointer_type(),
+        }
     }
 }
 
