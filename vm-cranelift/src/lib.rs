@@ -160,8 +160,8 @@ impl JitCompiler for CraneliftJitCompiler {
                 Instruction::Return => {
                     function_builder.ins().return_(&[]);
                 },
-                _ => {
-
+                x => {
+                    panic!("Can't handle {x:?}");
                 }
             }
         }
