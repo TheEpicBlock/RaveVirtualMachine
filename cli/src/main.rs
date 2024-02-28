@@ -2,6 +2,7 @@ mod cli;
 
 use crate::cli::RaveCliFormat;
 use clap::Parser;
+use vm_llvm::LlvmJitCompiler;
 use std::io::BufReader;
 use std::fs::File;
 use classfile_parser::constant_pool::ConstantPool;
@@ -10,7 +11,6 @@ use classfile_parser::attributes::AttributeEntry;
 use std::error::Error;
 use std::fmt::Display;
 use vm_core::VirtualMachine;
-use vm_cranelift::CraneliftJitCompiler;
 use vm_core::class_loaders::SimpleClassLoader;
 
 fn main() {
@@ -69,7 +69,7 @@ fn main() {
             match res {
                 Ok(class) => {
                     let loader = SimpleClassLoader::new(class);
-                    let mut vm = VirtualMachine::new(loader, CraneliftJitCompiler::default());
+                    let mut vm = VirtualMachine::new(loader, LlvmJitCompiler::default());
                     vm.start("nl.theepicblock.Addition").unwrap();
                 }
                 Err(err) => {

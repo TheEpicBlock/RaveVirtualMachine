@@ -1,5 +1,5 @@
 [package]
-name = "testsuite"
+name = "vm-llvm"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 vm-core = { path = "../vm-core" }
 classfile-parser = { path = "../classfile-parser" }
-vm-llvm = { path = "../vm-llvm" }
+inkwell = { version = "0.2.0", features = ["llvm16-0"]}
