@@ -1,6 +1,8 @@
 use crate::byte_util::{ByteParseable, BigEndianReadExt};
 use crate::ClassParseError;
-use std::io::Read;
+use std::io::{Cursor, Read, Seek, SeekFrom, Take};
+use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
+use std::slice::SliceIndex;
 
 macro_rules! gen_bytecode_enum {
     (
@@ -291,5 +293,71 @@ mod tests {
         let result = Instruction::parse_bytes(&bytes);
 
         assert_matches!(result, Err(ClassParseError::InvalidBytecode(0xfd)));
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Code {
+    pub(crate) inner: Box<[u8]>,
+}
+
+pub trait IndexingRange<T> {
+    fn get_or(self, v: Range<T>) -> Range<T>;
+}
+
+impl<T> IndexingRange<T> for RangeFull {
+    fn get_or(self, v: Range<T>) -> Range<T> {
+        v
+    }
+}
+
+impl<T> IndexingRange<T> for Range<T> {
+    fn get_or(self, v: Range<T>) -> Range<T> {
+        self
+    }
+}
+
+impl<T> IndexingRange<T> for RangeFrom<T> {
+    fn get_or(self, v: Range<T>) -> Range<T> {
+        self.start..v.end
+    }
+}
+
+impl<T> IndexingRange<T> for RangeTo<T> {
+    fn get_or(self, v: Range<T>) -> Range<T> {
+        v.start..self.end
+    }
+}
+
+
+impl Code {
+    pub fn from_vec(v: Vec<u8>) -> Self {
+        Self {
+            inner: v.into()
+        }
+    }
+
+    pub fn iter<'code, I: IndexingRange<usize>>(&'code self, range: I) -> CodeIterator<'code> {
+        let range = range.get_or(0..self.inner.len());
+
+        let cursor = Cursor::new(&self.inner[range]);
+
+        CodeIterator { data: cursor }
+    }
+}
+
+pub struct CodeIterator<'code> {
+    data: Cursor<&'code [u8]>,
+}
+
+impl<'code> Iterator for CodeIterator<'code> {
+    type Item = Instruction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.data.is_empty() {
+            None
+        } else {
+            Some(ByteParseable::parse(&mut self.data).unwrap())
+        }
     }
 }

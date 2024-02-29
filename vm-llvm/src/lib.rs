@@ -94,10 +94,10 @@ impl JitCompiler for LlvmJitCompiler {
         };
 
 
-        for instr in &method.data.code.code {
+        for instr in method.data.code.code.iter(..) {
             match instr {
                 Instruction::IConst(x) => {
-                    stack.push(self.context.i32_type().const_int(*x as u64, false).into());
+                    stack.push(self.context.i32_type().const_int(x as u64, false).into());
                 }
                 Instruction::IAdd => {
                     let a = stack.pop().unwrap().into_int_value();
@@ -105,10 +105,10 @@ impl JitCompiler for LlvmJitCompiler {
                     stack.push(self.builder.build_int_add(a, b, "result").into());
                 }
                 Instruction::AStore(i) => {
-                    local_variables[*i as usize] = Some(stack.pop().unwrap());
+                    local_variables[i as usize] = Some(stack.pop().unwrap());
                 }
                 Instruction::ALoad(i) => {
-                    stack.push(local_variables[*i as usize].unwrap());
+                    stack.push(local_variables[i as usize].unwrap());
                 }
                 Instruction::NewArray(atype) => {
                     let ty = match atype {
@@ -142,6 +142,9 @@ impl JitCompiler for LlvmJitCompiler {
                 }
                 Instruction::IReturn => {
                     self.builder.build_return(Some(&stack.pop().unwrap()));
+                }
+                Instruction::IfICmpEq(i) => {
+                    // self.builder.build_conditional_branch(comparison, then_block, else_block);
                 }
                 x => panic!("No LLVM implementation for {:?}", x),
             }

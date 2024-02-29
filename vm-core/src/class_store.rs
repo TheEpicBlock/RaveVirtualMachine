@@ -184,6 +184,8 @@ impl MethodData {
 
 #[cfg(test)]
 mod tests {
+    use classfile_parser::bytecode::Code;
+
     use crate::class_store::*;
     use crate::class_store::DescriptorEntry::Class;
     use crate::class_store::MethodData;
@@ -198,7 +200,7 @@ mod tests {
             code: CodeAttribute {
                 max_stack: 0,
                 max_locals: 0,
-                code: vec![],
+                code: Code::from_vec(vec![]),
                 exception_table: vec![],
                 attributes: vec![]
             }

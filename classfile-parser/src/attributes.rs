@@ -1,9 +1,10 @@
 use crate::constant_pool::{types, ConstantPool};
 use std::io::Read;
+use std::ops::Range;
 use crate::ClassParseError;
 use crate::byte_util::{ByteParseable, BigEndianReadExt, read_to_vec};
 use crate::gen_parseable;
-use crate::bytecode::Instruction;
+use crate::bytecode::{Code, Instruction};
 
 macro_rules! gen_attribute_parser {
     (
@@ -89,7 +90,7 @@ gen_parseable! {
 pub struct CodeAttribute {
     pub max_stack: u16,
     pub max_locals: u16,
-    pub code: Vec<Instruction>,
+    pub code: Code,
     pub exception_table: Vec<u8>,
     pub attributes: Vec<AttributeEntry>,
 }
@@ -113,10 +114,7 @@ impl Attribute for CodeAttribute {
         let mut bytecode_bytes = bytes.take(bytecode_size as u64);
 
         let mut bytecode = Vec::new();
-        while bytecode_bytes.limit() != 0 {
-            bytecode.push(ByteParseable::parse(&mut bytecode_bytes)
-                .map_err(|e| e.with_misc_context("parsing bytecode array"))?);
-        }
+        bytecode_bytes.read_to_end(&mut bytecode)?;
 
         let exception_table_size = bytes.read_u16()?;
         let exception_table = read_to_vec(bytes, (exception_table_size * 8) as usize)?;
@@ -126,7 +124,7 @@ impl Attribute for CodeAttribute {
         return Ok(CodeAttribute {
             max_stack,
             max_locals,
-            code: bytecode,
+            code: Code::from_vec(bytecode),
             exception_table,
             attributes
         });

@@ -122,10 +122,10 @@ impl JitCompiler for CraneliftJitCompiler {
 
         let mut stack = Vec::new();
 
-        for inst in code {
+        for inst in code.iter(..) {
             match inst {
                 Instruction::IConst(x) => {
-                    let x = *x as i64;
+                    let x = x as i64;
                     let value = function_builder.ins().iconst(DescriptorEntry::Int.to_type(target), x);
                     let const_var = create_var();
                     function_builder.declare_var(const_var, DescriptorEntry::Int.to_type(target));
@@ -133,21 +133,21 @@ impl JitCompiler for CraneliftJitCompiler {
                     stack.push(const_var);
                 }
                 Instruction::FConst(x) => {
-                    let value = function_builder.ins().f32const(*x);
+                    let value = function_builder.ins().f32const(x);
                     let const_var = create_var();
                     function_builder.declare_var(const_var, DescriptorEntry::Float.to_type(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::DConst(x) => {
-                    let value = function_builder.ins().f64const(*x);
+                    let value = function_builder.ins().f64const(x);
                     let const_var = create_var();
                     function_builder.declare_var(const_var, DescriptorEntry::Double.to_type(target));
                     function_builder.def_var(const_var, value);
                     stack.push(const_var);
                 }
                 Instruction::GetStatic(x) => {
-                    let field = constant_pool.get_as::<types::FieldRef>(*x).unwrap(); // FIXME
+                    let field = constant_pool.get_as::<types::FieldRef>(x).unwrap(); // FIXME
                     let class = constant_pool.get_as::<types::Class>(field.class_index).unwrap();
                     let name_and_type = constant_pool.get_as::<types::NameAndTypeInfo>(field.name_and_type_index).unwrap();
 

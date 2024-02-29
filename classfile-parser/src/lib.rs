@@ -1,3 +1,5 @@
+#![feature(cursor_remaining)]
+
 use std::string::FromUtf8Error;
 use thiserror::Error;
 use crate::class_file::ClassFile;
