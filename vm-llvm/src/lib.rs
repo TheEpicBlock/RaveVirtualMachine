@@ -1,19 +1,24 @@
-use std::collections::HashMap;
+mod type_translation;
 
+use std::collections::HashMap;
+use std::mem;
 
 use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType};
-use inkwell::values::{AnyValue, BasicValueEnum};
+use inkwell::values::{AnyValue, BasicValueEnum, IntValue, PointerValue};
+use type_translation::LlvmReturnType;
 use vm_core::{JitCompiler, ClassShell};
-use vm_core::class_store::{MethodData, DescriptorEntry};
+use vm_core::class_store::{DescriptorEntry, MethodData};
 use vm_core::classfile_util::ConstantPoolExtensions;
 use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
 use classfile_parser::bytecode::Instruction;
-use inkwell::builder::Builder;
+use inkwell::builder::{self, Builder};
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::OptimizationLevel;
 use classfile_parser::class_file::{ClassFile, MethodInfo};
+
+use crate::type_translation::IntoType;
 
 pub struct LlvmJitCompiler {
     context: &'static Context,
@@ -69,6 +74,7 @@ impl JitCompiler for LlvmJitCompiler {
         let method = &class.methods[method.0];
         let desc = method.data.parse_descriptors();
         
+        let usize_type = self.context.ptr_sized_int_type(self.execution_engine.get_target_data(), None);
         let return_types: Vec<_> = desc.0.iter().map(|t| t.to_type(self.context).unwrap().to_meta()).collect();
         let ty = desc.1.to_type(self.context).unwrap().fn_type(&return_types, false);
         let function = self.module.add_function(&format!("{}-{}", class.name, method.data.name), ty, None);
@@ -76,7 +82,17 @@ impl JitCompiler for LlvmJitCompiler {
         let block = self.context.append_basic_block(function, "entry");
         self.builder.position_at_end(block);
 
-        let mut stack: Vec<BasicValueEnum> = Vec::new();
+        let mut local_variables: [Option<BasicValueEnum<'static>>; 50] = [None; 50];
+        let mut stack: Vec<BasicValueEnum<'static>> = Vec::new();
+
+        let arr_header_size = usize_type.const_int(mem::size_of::<usize>() as u64, false);
+        let indexed_ptr = |array: PointerValue<'static>, index: IntValue<'static>, ty: LlvmReturnType<'static>| {
+            let offset = self.builder.build_int_add(arr_header_size, self.builder.build_int_mul(ty.size_of().unwrap(), index, "ptrcalc interm"), "index offset");
+            unsafe {
+                self.builder.build_gep(self.context.i8_type(), array, &[offset], "indexed ptr")
+            }
+        };
+
 
         for instr in &method.data.code.code {
             match instr {
@@ -87,6 +103,42 @@ impl JitCompiler for LlvmJitCompiler {
                     let a = stack.pop().unwrap().into_int_value();
                     let b = stack.pop().unwrap().into_int_value();
                     stack.push(self.builder.build_int_add(a, b, "result").into());
+                }
+                Instruction::AStore(i) => {
+                    local_variables[*i as usize] = Some(stack.pop().unwrap());
+                }
+                Instruction::ALoad(i) => {
+                    stack.push(local_variables[*i as usize].unwrap());
+                }
+                Instruction::NewArray(atype) => {
+                    let ty = match atype {
+                        4 => DescriptorEntry::Boolean,
+                        5 => DescriptorEntry::Char,
+                        6 => DescriptorEntry::Float,
+                        7 => DescriptorEntry::Double,
+                        8 => DescriptorEntry::Byte,
+                        9 => DescriptorEntry::Short,
+                        10 => DescriptorEntry::Int,
+                        11 => DescriptorEntry::Long,
+                        _ => panic!()
+                    };
+
+                    // malloc(sizeof(ty) * i + ARR_HEADER_SIZE);
+                    let malloc_size = self.builder.build_int_add(self.builder.build_int_mul(stack.pop().unwrap().into_int_value(), ty.to_type(self.context).unwrap().size_of().unwrap(), "amalloc intermediate"), arr_header_size, "amalloc size");
+                    stack.push(self.builder.build_array_malloc(self.context.i8_type(), malloc_size, "arrayptr").unwrap().into());
+                }
+                Instruction::IAstore => {
+                    let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
+                    let value: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                    let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                    let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
+                    self.builder.build_store(indexed_ptr(array, index, ty), value);
+                }
+                Instruction::IALoad => {
+                    let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
+                    let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                    let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
+                    stack.push(self.builder.build_load(ty.to_basic().unwrap(), indexed_ptr(array, index, ty), "iaload result"));
                 }
                 Instruction::IReturn => {
                     self.builder.build_return(Some(&stack.pop().unwrap()));
@@ -132,104 +184,6 @@ impl<'a> ClassShell for LlvmClass {
     fn get_method(&self, name: &str, descriptor: &str) -> Option<Self::Method> {
         let method_index = self.methods.iter().enumerate().find(|m| m.1.data.name == name && m.1.data.descriptor == descriptor)?.0;
         Some(MethodId(method_index))
-    }
-}
-
-trait IntoType {
-    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> Option<LlvmReturnType<'ctx>>;
-    // fn to_abi(&self, target: TargetFrontendConfig) -> AbiParam {
-    //     AbiParam::new(self.to_type(target))
-    // }
-}
-
-impl IntoType for DescriptorEntry {
-    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> Option<LlvmReturnType<'ctx>> {
-        // TODO ptr types shouldn't be to ints
-        match self {
-            // DescriptorEntry::Class(_) => ctx.i8_type().ptr_type(AddressSpace::default()).into(),
-            DescriptorEntry::Byte =>        Some(BasicTypeEnum::from(ctx.i8_type()).into()),
-            DescriptorEntry::Char =>        Some(BasicTypeEnum::from(ctx.i8_type()).into()),
-            DescriptorEntry::Double =>      Some(BasicTypeEnum::from(ctx.f64_type()).into()),
-            DescriptorEntry::Float =>       Some(BasicTypeEnum::from(ctx.f32_type()).into()),
-            DescriptorEntry::Int =>         Some(BasicTypeEnum::from(ctx.i32_type()).into()),
-            DescriptorEntry::Long =>        Some(BasicTypeEnum::from(ctx.i64_type()).into()),
-            DescriptorEntry::Short =>       Some(BasicTypeEnum::from(ctx.i16_type()).into()),
-            DescriptorEntry::Boolean =>     Some(BasicTypeEnum::from(ctx.bool_type()).into()),
-            DescriptorEntry::Void =>        Some(ctx.void_type().into()),
-            // DescriptorEntry::Array(_) => ctx.i8_type().ptr_type(AddressSpace::default()).into(),
-            _ => None
-        }
-    }
-}
-
-enum LlvmReturnType<'ctx> {
-    Regular(BasicTypeEnum<'ctx>),
-    Void(VoidType<'ctx>)
-}
-
-impl<'ctx> LlvmReturnType<'ctx> {
-    fn to_meta(self) -> BasicMetadataTypeEnum<'ctx> {
-        match self {
-            LlvmReturnType::Regular(x) => x.into(),
-            LlvmReturnType::Void(_x) => panic!(),
-        }
-    }
-}
-
-impl<'ctx> LlvmReturnType<'ctx> {
-    fn fn_type(&self, param_types: &[BasicMetadataTypeEnum<'ctx>], is_var_args: bool) -> FunctionType<'ctx> {
-        match self {
-            LlvmReturnType::Regular(x) => x.fn_type(param_types, is_var_args),
-            LlvmReturnType::Void(x) => x.fn_type(param_types, is_var_args),
-        }
-    }
-}
-
-impl<'ctx> From<BasicTypeEnum<'ctx>> for LlvmReturnType<'ctx> {
-    fn from(value: BasicTypeEnum<'ctx>) -> Self {
-        Self::Regular(value)
-    }
-}
-
-impl<'ctx> From<VoidType<'ctx>> for LlvmReturnType<'ctx> {
-    fn from(value: VoidType<'ctx>) -> Self {
-        Self::Void(value)
-    }
-}
-
-trait LlvmType<'ctx> {
-    fn fn_type(self, param_types: &[BasicMetadataTypeEnum<'ctx>], is_var_args: bool) -> FunctionType<'ctx>;
-
-    fn to_enum(self) -> BasicMetadataTypeEnum<'ctx>;
-}
-
-impl<'ctx> LlvmType<'ctx> for IntType<'ctx> {
-    fn fn_type(self, param_types: &[BasicMetadataTypeEnum<'ctx>], is_var_args: bool) -> FunctionType<'ctx> {
-        self.fn_type(param_types, is_var_args)
-    }
-
-    fn to_enum(self) -> BasicMetadataTypeEnum<'ctx> {
-        self.into()
-    }
-}
-
-impl<'ctx> LlvmType<'ctx> for FloatType<'ctx> {
-    fn fn_type(self, param_types: &[BasicMetadataTypeEnum<'ctx>], is_var_args: bool) -> FunctionType<'ctx> {
-        self.fn_type(param_types, is_var_args)
-    }
-
-    fn to_enum(self) -> BasicMetadataTypeEnum<'ctx> {
-        self.into()
-    }
-}
-
-impl<'ctx> LlvmType<'ctx> for VoidType<'ctx> {
-    fn fn_type(self, param_types: &[BasicMetadataTypeEnum<'ctx>], is_var_args: bool) -> FunctionType<'ctx> {
-        self.fn_type(param_types, is_var_args)
-    }
-
-    fn to_enum(self) -> BasicMetadataTypeEnum<'ctx> {
-        panic!("Void is not an argument");
     }
 }
 

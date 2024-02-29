@@ -78,6 +78,24 @@ pub enum DescriptorEntry {
     Array(Box<DescriptorEntry>)
 }
 
+impl DescriptorEntry {
+    pub fn byte_size(&self) -> u64 {
+        match self {
+            DescriptorEntry::Class(_) => todo!(),
+            Byte => 1,
+            Char => 1,
+            Double => 8,
+            Float => 4,
+            Int => 4,
+            Long => 8,
+            Short => 2,
+            Boolean => 1,
+            Void => 0,
+            Array(_) => todo!(),
+        }
+    }
+}
+
 impl MethodData {
     pub fn from_info(method_info: MethodInfo, constant_pool: &impl ConstantPool) -> Result<Self, ()> {
         let name = constant_pool.get_as_string(method_info.name_index).ok_or(())?.to_string();
