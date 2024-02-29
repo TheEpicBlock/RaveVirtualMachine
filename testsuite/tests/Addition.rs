@@ -4,5 +4,5 @@ use vm_llvm::LlvmJitCompiler;
 
 fn run(classpath: impl ClassLoader) {
     let mut vm = VirtualMachine::new(classpath, LlvmJitCompiler::default());
-    vm.run("SimpleReturn", "number", "()I").unwrap();
+    vm.run("Addition", "add", "()I").unwrap();
 }

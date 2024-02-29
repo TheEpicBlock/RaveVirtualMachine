@@ -1,0 +1,3 @@
+[submodule "testsuite/jasm"]
+	path = testsuite/jasm
+	url = https://github.com/roscopeco/jasm.git

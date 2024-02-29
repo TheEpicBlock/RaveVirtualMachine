@@ -86,7 +86,7 @@ impl JitCompiler for LlvmJitCompiler {
                 Instruction::IAdd => {
                     let a = stack.pop().unwrap().into_int_value();
                     let b = stack.pop().unwrap().into_int_value();
-                    stack.push(self.builder.build_int_add(a, b, "result").into())
+                    stack.push(self.builder.build_int_add(a, b, "result").into());
                 }
                 Instruction::IReturn => {
                     self.builder.build_return(Some(&stack.pop().unwrap()));

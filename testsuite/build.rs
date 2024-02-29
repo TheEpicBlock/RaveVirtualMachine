@@ -9,6 +9,9 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=tests");
+    println!("cargo:rerun-if-changed=jasm/src");
+    println!("cargo:rerun-if-changed=jasm/build.gradle.kts");
+    println!("cargo:rerun-if-changed=jasm/gradle.properties");
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let out_dir = Path::new(&out_dir);
@@ -27,15 +30,23 @@ fn main() {
 
     for test_name in test_names {
         let java_file = testdir.join(&test_name).with_extension("java");
+        let jasm_file = testdir.join(&test_name).with_extension("jasm");
         let rust_file = testdir.join(&test_name).with_extension("rs");
 
         let out_dir = out_dir.join(&test_name);
         println!("{}", out_dir.display());
         fs::create_dir(&out_dir).unwrap();
-        Command::new("javac")
-            .arg(java_file)
-            .arg("-d").arg(&out_dir)
-            .status().unwrap();
+        
+        if java_file.exists() {
+            Command::new("javac")
+                .arg(java_file)
+                .arg("-d").arg(&out_dir)
+                .status().unwrap();
+        } else if jasm_file.exists() {
+            run_jasm(&jasm_file, &out_dir)
+        } else {
+            panic!();
+        }
 
         tests.push(Test {
             name: test_name,
@@ -78,4 +89,24 @@ struct Test {
     name: OsString,
     rust_file: PathBuf,
     out_dir: PathBuf,
+}
+
+fn run_jasm(input: &Path, output_dir: &Path) {
+    let jasm = Path::new("jasm");
+
+    #[cfg(not(target_os = "windows"))]
+    let gradlew = jasm.join("gradlew");
+    #[cfg(target_os = "windows")]
+    let gradlew = jasm.join("gradlew.bat");
+
+    let output_dir = output_dir.canonicalize().unwrap();
+    let input = input.canonicalize().unwrap();
+
+    println!("--args=\"-o '{}' -i '{}' '{}'\"", output_dir.display(), input.parent().unwrap().display(), input.file_name().unwrap().to_str().unwrap());
+
+    Command::new(gradlew.canonicalize().unwrap())
+        .current_dir(jasm)
+        .arg("run")
+        .arg(format!("--args=-o '{}' -i '{}' '{}'", output_dir.display(), input.parent().unwrap().display(), input.file_name().unwrap().to_str().unwrap()))
+        .status().unwrap();
 }
