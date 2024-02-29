@@ -1,0 +1,10 @@
+public class DoubleAddition {
+    public static add()I {
+        iconst 2
+        iconst 4
+        iadd
+        iconst 3
+        iadd
+        ireturn
+    }
+}
