@@ -53,9 +53,9 @@ fn main() {
 
         let output_files: Vec<_> = fs::read_dir(test.out_dir).unwrap().map(|f| f.unwrap()).collect();
         assert_eq!(output_files.len(), 1);
-        let java_file = &output_files[0];
-        let java_file = java_file.path().canonicalize().unwrap();
-        let java_file = java_file.to_str().unwrap();
+        let class_file = &output_files[0];
+        let class_file = class_file.path().canonicalize().unwrap();
+        let class_file = class_file.to_str().unwrap();
 
         write!(output, r#"
             #[cfg(test)]
@@ -63,7 +63,7 @@ fn main() {
                 #[test]
                 fn test() {{
                     // setup_classloader comes from lib.rs
-                    run(crate::setup_classloader(include_bytes!("{java_file}")));
+                    run(crate::setup_classloader(include_bytes!("{class_file}")));
                 }}
 
                 include!("{rust_file}");
