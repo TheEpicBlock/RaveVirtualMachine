@@ -1,3 +1,5 @@
+#![feature(exit_status_error)]
+
 use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
@@ -41,7 +43,7 @@ fn main() {
             Command::new("javac")
                 .arg(java_file)
                 .arg("-d").arg(&out_dir)
-                .status().unwrap();
+                .status().unwrap().exit_ok().unwrap();
         } else if jasm_file.exists() {
             run_jasm(&jasm_file, &out_dir)
         } else {
@@ -108,5 +110,5 @@ fn run_jasm(input: &Path, output_dir: &Path) {
         .current_dir(jasm)
         .arg("run")
         .arg(format!("--args=-o '{}' -i '{}' '{}'", output_dir.display(), input.parent().unwrap().display(), input.file_name().unwrap().to_str().unwrap()))
-        .status().unwrap();
+        .status().unwrap().exit_ok().unwrap();
 }
