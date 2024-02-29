@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 
-use inkwell::types::{AnyType, AnyTypeEnum, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType};
+use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType};
 use inkwell::values::{AnyValue, BasicValueEnum};
 use vm_core::{JitCompiler, ClassShell};
 use vm_core::class_store::{MethodData, DescriptorEntry};
@@ -12,7 +12,7 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::{OptimizationLevel, AddressSpace};
+use inkwell::OptimizationLevel;
 use classfile_parser::class_file::{ClassFile, MethodInfo};
 
 pub struct LlvmJitCompiler {
@@ -171,7 +171,7 @@ impl<'ctx> LlvmReturnType<'ctx> {
     fn to_meta(self) -> BasicMetadataTypeEnum<'ctx> {
         match self {
             LlvmReturnType::Regular(x) => x.into(),
-            LlvmReturnType::Void(x) => panic!(),
+            LlvmReturnType::Void(_x) => panic!(),
         }
     }
 }
@@ -240,15 +240,15 @@ impl TryFrom<ClassFile> for LlvmClass {
         let constant_pool = classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
-        let name = fullname.rsplit_once("/").unwrap_or(("", &fullname));
+        let name = fullname.rsplit_once('/').unwrap_or(("", &fullname));
         
         let methods = classfile.methods.into_iter().map(|m| LlvmMethod::from_info(m, &constant_pool).unwrap()).collect(); // FIXME something better than unwrap pls
 
         Ok(LlvmClass {
-            constant_pool: constant_pool,
+            constant_pool,
             package: name.0.to_string(),
             name: name.1.to_string(),
-            methods: methods
+            methods
         })
     }
 }

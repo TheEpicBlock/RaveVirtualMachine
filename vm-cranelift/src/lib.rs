@@ -231,15 +231,15 @@ impl TryFrom<ClassFile> for CraneliftClass {
         let constant_pool = classfile.constant_pool;
         let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
         let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
-        let name = fullname.rsplit_once("/").unwrap_or(("", &fullname));
+        let name = fullname.rsplit_once('/').unwrap_or(("", &fullname));
         
         let methods = classfile.methods.into_iter().map(|m| CraneliftMethod::from_info(m, &constant_pool).unwrap()).collect(); // FIXME something better than unwrap pls
 
         Ok(CraneliftClass {
-            constant_pool: constant_pool,
+            constant_pool,
             package: name.0.to_string(),
             name: name.1.to_string(),
-            methods: methods
+            methods
         })
     }
 }

@@ -50,8 +50,8 @@ fn main() {
 
         tests.push(Test {
             name: test_name,
-            out_dir: out_dir,
-            rust_file: rust_file,
+            out_dir,
+            rust_file,
         })
     }
 
