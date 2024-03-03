@@ -25,8 +25,13 @@ pub fn get_code_attribute(method: &MethodInfo) -> Option<&CodeAttribute> {
     None
 }
 
-fn split_code_into_basic_blocks(code: Code) -> Vec<Range<usize>> {
+/// Splits java bytecode into blocks, such that the only jumps
+/// made by the bytecode are into the start of the blocks.
+/// Returned is a list of byte-ranges into the bytecode. 
+pub fn split_code_into_basic_blocks(code: &Code) -> Vec<Range<usize>> {
     let mut starting_positions = HashSet::new();
+
+    starting_positions.insert(0);
 
     for (byte, inst) in code.iter(..) {
         match inst {

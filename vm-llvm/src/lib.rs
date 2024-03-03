@@ -8,7 +8,7 @@ use inkwell::values::{AnyValue, BasicValueEnum, IntValue, PointerValue};
 use type_translation::LlvmReturnType;
 use vm_core::{JitCompiler, ClassShell};
 use vm_core::class_store::{DescriptorEntry, MethodData};
-use vm_core::classfile_util::ConstantPoolExtensions;
+use vm_core::classfile_util::{split_code_into_basic_blocks, ConstantPoolExtensions};
 use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
 use classfile_parser::bytecode::Instruction;
 use inkwell::builder::{self, Builder};
@@ -70,17 +70,23 @@ impl JitCompiler for LlvmJitCompiler {
     }
 
     fn run(&mut self, class: ClassId, method: Self::MethodId) {
+        // Retrieve some variables
         let class = &self.classes[class.0];
         let method = &class.methods[method.0];
         let desc = method.data.parse_descriptors();
         
+        // Setup some LLVM stuff
         let usize_type = self.context.ptr_sized_int_type(self.execution_engine.get_target_data(), None);
         let return_types: Vec<_> = desc.0.iter().map(|t| t.to_type(self.context).unwrap().to_meta()).collect();
         let ty = desc.1.to_type(self.context).unwrap().fn_type(&return_types, false);
         let function = self.module.add_function(&format!("{}-{}", class.name, method.data.name), ty, None);
 
-        let block = self.context.append_basic_block(function, "entry");
-        self.builder.position_at_end(block);
+        // Split into basic blocks
+        let basic_blocks = split_code_into_basic_blocks(&method.data.code.code).into_iter()
+            .map(|block_range| {
+                (block_range.start, (block_range, self.context.append_basic_block(function, "")))
+            })
+            .collect::<HashMap<_,_>>();
 
         let mut local_variables: [Option<BasicValueEnum<'static>>; 50] = [None; 50];
         let mut stack: Vec<BasicValueEnum<'static>> = Vec::new();
@@ -93,60 +99,62 @@ impl JitCompiler for LlvmJitCompiler {
             }
         };
 
-
-        for (byte, instr) in method.data.code.code.iter(..) {
-            match instr {
-                Instruction::IConst(x) => {
-                    stack.push(self.context.i32_type().const_int(x as u64, false).into());
+        for (block_bytes, block) in basic_blocks.values() {
+            self.builder.position_at_end(*block);
+            for (byte, instr) in method.data.code.code.iter(block_bytes.clone()) {
+                match instr {
+                    Instruction::IConst(x) => {
+                        stack.push(self.context.i32_type().const_int(x as u64, false).into());
+                    }
+                    Instruction::IAdd => {
+                        let a = stack.pop().unwrap().into_int_value();
+                        let b = stack.pop().unwrap().into_int_value();
+                        stack.push(self.builder.build_int_add(a, b, "result").into());
+                    }
+                    Instruction::AStore(i) => {
+                        local_variables[i as usize] = Some(stack.pop().unwrap());
+                    }
+                    Instruction::ALoad(i) => {
+                        stack.push(local_variables[i as usize].unwrap());
+                    }
+                    Instruction::NewArray(atype) => {
+                        let ty = match atype {
+                            4 => DescriptorEntry::Boolean,
+                            5 => DescriptorEntry::Char,
+                            6 => DescriptorEntry::Float,
+                            7 => DescriptorEntry::Double,
+                            8 => DescriptorEntry::Byte,
+                            9 => DescriptorEntry::Short,
+                            10 => DescriptorEntry::Int,
+                            11 => DescriptorEntry::Long,
+                            _ => panic!()
+                        };
+    
+                        // malloc(sizeof(ty) * i + ARR_HEADER_SIZE);
+                        let malloc_size = self.builder.build_int_add(self.builder.build_int_mul(stack.pop().unwrap().into_int_value(), ty.to_type(self.context).unwrap().size_of().unwrap(), "amalloc intermediate"), arr_header_size, "amalloc size");
+                        stack.push(self.builder.build_array_malloc(self.context.i8_type(), malloc_size, "arrayptr").unwrap().into());
+                    }
+                    Instruction::IAstore => {
+                        let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
+                        let value: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                        let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                        let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
+                        self.builder.build_store(indexed_ptr(array, index, ty), value);
+                    }
+                    Instruction::IALoad => {
+                        let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
+                        let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
+                        let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
+                        stack.push(self.builder.build_load(ty.to_basic().unwrap(), indexed_ptr(array, index, ty), "iaload result"));
+                    }
+                    Instruction::IReturn => {
+                        self.builder.build_return(Some(&stack.pop().unwrap()));
+                    }
+                    Instruction::IfICmpEq(i) => {
+                        // self.builder.build_conditional_branch(comparison, then_block, else_block);
+                    }
+                    x => panic!("No LLVM implementation for {:?}", x),
                 }
-                Instruction::IAdd => {
-                    let a = stack.pop().unwrap().into_int_value();
-                    let b = stack.pop().unwrap().into_int_value();
-                    stack.push(self.builder.build_int_add(a, b, "result").into());
-                }
-                Instruction::AStore(i) => {
-                    local_variables[i as usize] = Some(stack.pop().unwrap());
-                }
-                Instruction::ALoad(i) => {
-                    stack.push(local_variables[i as usize].unwrap());
-                }
-                Instruction::NewArray(atype) => {
-                    let ty = match atype {
-                        4 => DescriptorEntry::Boolean,
-                        5 => DescriptorEntry::Char,
-                        6 => DescriptorEntry::Float,
-                        7 => DescriptorEntry::Double,
-                        8 => DescriptorEntry::Byte,
-                        9 => DescriptorEntry::Short,
-                        10 => DescriptorEntry::Int,
-                        11 => DescriptorEntry::Long,
-                        _ => panic!()
-                    };
-
-                    // malloc(sizeof(ty) * i + ARR_HEADER_SIZE);
-                    let malloc_size = self.builder.build_int_add(self.builder.build_int_mul(stack.pop().unwrap().into_int_value(), ty.to_type(self.context).unwrap().size_of().unwrap(), "amalloc intermediate"), arr_header_size, "amalloc size");
-                    stack.push(self.builder.build_array_malloc(self.context.i8_type(), malloc_size, "arrayptr").unwrap().into());
-                }
-                Instruction::IAstore => {
-                    let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
-                    let value: IntValue<'static> = stack.pop().unwrap().into_int_value();
-                    let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
-                    let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
-                    self.builder.build_store(indexed_ptr(array, index, ty), value);
-                }
-                Instruction::IALoad => {
-                    let ty = DescriptorEntry::Int.to_type(self.context).unwrap();
-                    let index: IntValue<'static> = stack.pop().unwrap().into_int_value();
-                    let array: PointerValue<'static> = stack.pop().unwrap().into_pointer_value();
-                    stack.push(self.builder.build_load(ty.to_basic().unwrap(), indexed_ptr(array, index, ty), "iaload result"));
-                }
-                Instruction::IReturn => {
-                    self.builder.build_return(Some(&stack.pop().unwrap()));
-                }
-                Instruction::IfICmpEq(i) => {
-                    // self.builder.build_conditional_branch(comparison, then_block, else_block);
-                }
-                x => panic!("No LLVM implementation for {:?}", x),
             }
         }
 
