@@ -43,7 +43,7 @@ fn main() {
                         println!("{}", class.constant_pool.get_as::<Utf8Info>(method.name_index).unwrap().inner);
                         for attribute in method.attributes {
                             if let AttributeEntry::Code(code) = attribute {
-                                for inst in code.code.iter(..) {
+                                for (byte, inst) in code.code.iter(..) {
                                     println!(" - {:?}", inst);
                                 }
                             }

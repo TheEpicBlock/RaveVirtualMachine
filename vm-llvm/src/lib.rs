@@ -94,7 +94,7 @@ impl JitCompiler for LlvmJitCompiler {
         };
 
 
-        for instr in method.data.code.code.iter(..) {
+        for (byte, instr) in method.data.code.code.iter(..) {
             match instr {
                 Instruction::IConst(x) => {
                     stack.push(self.context.i32_type().const_int(x as u64, false).into());

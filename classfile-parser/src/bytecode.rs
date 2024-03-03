@@ -4,6 +4,10 @@ use std::io::{Cursor, Read, Seek, SeekFrom, Take};
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 use std::slice::SliceIndex;
 
+macro_rules! ignore {
+    ($a:ident) => {};
+}
+
 macro_rules! gen_bytecode_enum {
     (
         $(#[$Meta:meta])*
@@ -37,16 +41,32 @@ macro_rules! gen_bytecode_enum {
                 }
             }
         }
+
+        impl $Name {
+            /// Length of this instruction in bytes
+            pub fn byte_size(&self) -> usize {
+                match self {
+                    $(
+                        // SAFETY: core::mem::size_of needs to return the same amount as what ByteParseable parses
+                        // TODO: might be better to add a `size` field to ByteParseable instead of querying core::mem::size_of
+                        $($Name::$Instr$((..) if { $(ignore!($innerType);)* true })? => [1,$($(core::mem::size_of::<$innerType>()),*)?].iter().sum(),)?
+                        $($Name::$NameInternal(..) => [1,$($(core::mem::size_of::<$ValueInternal>()),*)?].iter().sum(),)?
+                    )*
+                    _ => unreachable!()
+                }
+            }
+        }
     }
 }
 
 gen_bytecode_enum! {
+    /// https://docs.oracle.com/javase/specs/jvms/se21/html/jvms-6.html#jvms-6.5
     #[derive(Debug, Clone)]
     #[allow(non_camel_case_types)]
     pub enum Instruction {
-        ///Load onto the stack a reference from an array
+        /// Load onto the stack a reference from an array
         AALoad = 0x32,
-        ///Store a reference in an array
+        /// Store a reference in an array
         AAStore = 0x53,
         AConstNull = 0x01,
         ALoad(u8) = 0x19,
@@ -199,8 +219,8 @@ gen_bytecode_enum! {
         ISub = 0x64,
         IUShR = 0x7c,
         IXor = 0x82,
-        JSr(u8, u8) = 0xa8,
-        JSr_w(u16, u16) = 0xc9,
+        JSr(u16) = 0xa8,
+        JSr_w(u32) = 0xc9,
         L2D = 0x8a,
         L2F = 0x89,
         L2I = 0x88,
@@ -247,6 +267,7 @@ gen_bytecode_enum! {
         Pop2 = 0x58,
         Putfield(u16) = 0xb5,
         PutStatic(u16) = 0xb3,
+        /// Indexes the local variable table and jumps to what is contained in it
         Ret(u8) = 0xa9,
         Return = 0xb1,
         SALoad = 0x35,
@@ -344,6 +365,10 @@ impl Code {
 
         CodeIterator { data: cursor }
     }
+
+    pub fn byte_len(&self) -> usize {
+        self.inner.len()
+    }
 }
 
 pub struct CodeIterator<'code> {
@@ -351,13 +376,13 @@ pub struct CodeIterator<'code> {
 }
 
 impl<'code> Iterator for CodeIterator<'code> {
-    type Item = Instruction;
+    type Item = (usize, Instruction);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.data.is_empty() {
             None
         } else {
-            Some(ByteParseable::parse(&mut self.data).unwrap())
+            Some((self.data.position() as usize, ByteParseable::parse(&mut self.data).unwrap()))
         }
     }
 }

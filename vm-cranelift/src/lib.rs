@@ -122,7 +122,7 @@ impl JitCompiler for CraneliftJitCompiler {
 
         let mut stack = Vec::new();
 
-        for inst in code.iter(..) {
+        for (byte, inst) in code.iter(..) {
             match inst {
                 Instruction::IConst(x) => {
                     let x = x as i64;
