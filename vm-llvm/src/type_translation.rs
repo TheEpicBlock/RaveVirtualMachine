@@ -32,7 +32,7 @@ impl<'ctx> CtxJavaTypeExtension<'ctx> for Context {
     }
 
     fn java_int(&'ctx self) -> IntType<'ctx> {
-        todo!()
+        self.i32_type()
     }
 
     fn java_long(&'ctx self) -> IntType<'ctx> {

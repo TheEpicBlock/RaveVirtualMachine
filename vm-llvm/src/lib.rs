@@ -15,10 +15,10 @@ use inkwell::builder::{self, Builder};
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::OptimizationLevel;
+use inkwell::{IntPredicate, OptimizationLevel};
 use classfile_parser::class_file::{ClassFile, MethodInfo};
 
-use crate::type_translation::IntoType;
+use crate::type_translation::{CtxJavaTypeExtension, IntoType};
 
 pub struct LlvmJitCompiler {
     context: &'static Context,
@@ -150,8 +150,10 @@ impl JitCompiler for LlvmJitCompiler {
                     Instruction::IReturn => {
                         self.builder.build_return(Some(&stack.pop().unwrap()));
                     }
-                    Instruction::IfICmpEq(i) => {
-                        // self.builder.build_conditional_branch(comparison, then_block, else_block);
+                    Instruction::IfEq(o) => {
+                        let num = stack.pop().unwrap().into_int_value();
+                        let comp = self.builder.build_int_compare(IntPredicate::EQ, num, self.context.java_int().const_zero().into(), "");
+                        self.builder.build_conditional_branch(comp, basic_blocks[&(byte + o as usize)].1, basic_blocks[&(byte + instr.byte_size())].1);
                     }
                     x => panic!("No LLVM implementation for {:?}", x),
                 }

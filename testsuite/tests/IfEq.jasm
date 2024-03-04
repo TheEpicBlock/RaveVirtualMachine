@@ -1,0 +1,11 @@
+public class IfEq {
+    public static run()I {
+        iconst 0
+        ifeq true_branch
+        iconst 3
+        ireturn
+    true_branch:
+        iconst 2
+        ireturn
+    }
+}
