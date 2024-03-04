@@ -5,6 +5,8 @@ use std::mem;
 
 use inkwell::basic_block::BasicBlock;
 use enum_map::EnumMap;
+use inkwell::passes::{PassBuilderOptions, PassManagerSubType};
+use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetData, TargetMachine};
 use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType};
 use inkwell::values::{AnyValue, BasicValueEnum, IntValue, PointerValue};
 use type_translation::{IntoBasicType, LlvmReturnType};
@@ -38,7 +40,7 @@ impl Default for LlvmJitCompiler {
         // This is fine
         let ctx = Box::leak(Box::new(Context::create()));
         let m = ctx.create_module("main");
-        let e = m.create_jit_execution_engine(OptimizationLevel::None).unwrap();
+        let e = m.create_jit_execution_engine(OptimizationLevel::Aggressive).unwrap();
         Self {
             context: ctx,
             module: m,
@@ -49,6 +51,35 @@ impl Default for LlvmJitCompiler {
             classes: Vec::new(),
         }
     }
+}
+
+fn run_passes_on(module: &Module, machine: &TargetData) {
+    Target::initialize_all(&InitializationConfig::default());
+    let target_triple = TargetMachine::get_default_triple();
+    let target = Target::from_triple(&target_triple).unwrap();
+    let target_machine = target
+        .create_target_machine(
+            &target_triple,
+            "generic",
+            "",
+            OptimizationLevel::None,
+            RelocMode::PIC,
+            CodeModel::Default,
+        )
+        .unwrap();
+
+    let passes: &[&str] = &[
+        "instcombine",
+        "reassociate",
+        "gvn",
+        "simplifycfg",
+        // "basic-aa",
+        "mem2reg",
+    ];
+
+    module
+        .run_passes(passes.join(",").as_str(), &target_machine, PassBuilderOptions::create())
+        .unwrap();
 }
 
 impl JitCompiler for LlvmJitCompiler {
@@ -121,7 +152,9 @@ impl JitCompiler for LlvmJitCompiler {
 
         for (block_bytes, block) in basic_blocks.values() {
             self.builder.position_at_end(*block);
+            let mut ended_with_branch = false;
             for (byte, instr) in method.data.code.code.iter(block_bytes.clone()) {
+                ended_with_branch = false;
                 match instr {
                     Instruction::IConst(x) => {
                         cctx.stack.push(self.context.i32_type().const_int(x as u64, false).into());
@@ -180,26 +213,33 @@ impl JitCompiler for LlvmJitCompiler {
                     }
                     Instruction::IReturn => {
                         self.builder.build_return(Some(&cctx.stack.pop().unwrap()));
+                        ended_with_branch = true;
                     }
                     Instruction::IfEq(o) => {
                         let num = cctx.stack.pop().unwrap().into_int_value();
                         let comp = self.builder.build_int_compare(IntPredicate::EQ, num, self.context.java_int().const_zero().into(), "");
                         self.builder.build_conditional_branch(comp, basic_blocks[&((byte as i64 + o as i64) as usize)].1, basic_blocks[&(byte + instr.byte_size())].1);
+                        ended_with_branch = true;
                     }
                     Instruction::Goto(o) => {
                         self.builder.build_unconditional_branch(basic_blocks[&((byte as i64 + o as i64) as usize)].1);
+                        ended_with_branch = true;
                     }
                     x => panic!("No LLVM implementation for {:?}", x),
                 }
             }
-            if let Some(next_block) = basic_blocks.get(&block_bytes.end) {
-                self.builder.build_unconditional_branch(next_block.1);
+            if !ended_with_branch {
+                if let Some(next_block) = basic_blocks.get(&block_bytes.end) {
+                    self.builder.build_unconditional_branch(next_block.1);
+                }
             }
         }
         // Branch to the first block from the init block
         self.builder.position_at_end(entry_block);
         self.builder.build_unconditional_branch(basic_blocks[&0].1);
 
+
+        run_passes_on(&self.module, self.execution_engine.get_target_data());
         println!("Running {}", function.print_to_string());
         unsafe {
             let fun: JitFunction<unsafe extern "C" fn() -> i32> = self.execution_engine.get_function(&format!("{}-{}", class.name, method.data.name)).unwrap();
