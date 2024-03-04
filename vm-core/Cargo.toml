@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 classfile-parser = { path = "../classfile-parser" }
 bitflags = "1.2"
+enum-map = "2.7.3"

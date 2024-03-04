@@ -136,7 +136,7 @@ gen_bytecode_enum! {
         |FConst(1.0) = 0x0c,
         |FConst(2.0) = 0x0d,
         FDiv = 0x6e,
-        FLoad(u16) = 0x17,
+        FLoad(u8) = 0x17,
         |FLoad(0) = 0x22,
         |FLoad(1) = 0x23,
         |FLoad(2) = 0x24,
@@ -145,7 +145,7 @@ gen_bytecode_enum! {
         FNeg = 0x76,
         FRem = 0x72,
         FReturn = 0xae,
-        FStore(u16) = 0x38,
+        FStore(u8) = 0x38,
         |FStore(0) = 0x43,
         |FStore(1) = 0x44,
         |FStore(2) = 0x45,
@@ -153,7 +153,7 @@ gen_bytecode_enum! {
         FSub = 0x66,
         GetField(u16) = 0xb4,
         GetStatic(u16) = 0xb2,
-        Goto(u16) = 0xa7,
+        Goto(i16) = 0xa7,
         Goto_w(u32) = 0xc8,
         I2B = 0x91,
         I2C = 0x92,
@@ -190,7 +190,7 @@ gen_bytecode_enum! {
         IfNe(u16) = 0x9a,
         IfNonNull(u16) = 0xc7,
         IfNull(u16) = 0xc6,
-        IInc(u8, u8) = 0x84,
+        IInc(u8, i8) = 0x84,
         ILoad(u8) = 0x15,
         |ILoad(0) = 0x1a,
         |ILoad(1) = 0x1b,
@@ -361,9 +361,9 @@ impl Code {
     pub fn iter<'code, I: IndexingRange<usize>>(&'code self, range: I) -> CodeIterator<'code> {
         let range = range.get_or(0..self.inner.len());
 
-        let cursor = Cursor::new(&self.inner[range]);
+        let cursor = Cursor::new(&self.inner[range.clone()]);
 
-        CodeIterator { data: cursor }
+        CodeIterator { start: range.start, data: cursor }
     }
 
     pub fn byte_len(&self) -> usize {
@@ -372,6 +372,7 @@ impl Code {
 }
 
 pub struct CodeIterator<'code> {
+    start: usize,
     data: Cursor<&'code [u8]>,
 }
 
@@ -382,7 +383,7 @@ impl<'code> Iterator for CodeIterator<'code> {
         if self.data.is_empty() {
             None
         } else {
-            Some((self.data.position() as usize, ByteParseable::parse(&mut self.data).unwrap()))
+            Some((self.data.position() as usize + self.start, ByteParseable::parse(&mut self.data).unwrap()))
         }
     }
 }

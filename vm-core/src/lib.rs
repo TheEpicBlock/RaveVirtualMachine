@@ -1,6 +1,7 @@
 pub mod classfile_util;
 pub mod class_store;
 pub mod class_loaders;
+pub mod types;
 
 use classfile_parser::class_file::ClassFile;
 

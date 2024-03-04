@@ -51,18 +51,18 @@ pub fn split_code_into_basic_blocks(code: &Code) -> Vec<Range<usize>> {
             Instruction::IfNe(offset) |
             Instruction::IfNonNull(offset) |
             Instruction::IfNull(offset) => {
-                starting_positions.insert(byte + offset as usize);
+                starting_positions.insert((byte as i64 + offset as i64) as usize);
                 // If the jump is false we continue straight after
                 starting_positions.insert(byte + inst.byte_size());
             }
             Instruction::Goto(offset) => {
-                starting_positions.insert(byte + offset as usize);
+                starting_positions.insert((byte as i64 + offset as i64) as usize);
             }
             Instruction::Goto_w(offset) => {
-                starting_positions.insert(byte + offset as usize);
+                starting_positions.insert((byte as i64 + offset as i64) as usize);
             }
             Instruction::JSr(offset) => {
-                starting_positions.insert(byte + offset as usize);
+                starting_positions.insert((byte as i64 + offset as i64) as usize);
                 // The jsr instruction pushes the continuation address, a ret instruction can later return here
                 starting_positions.insert(byte + inst.byte_size());
             }

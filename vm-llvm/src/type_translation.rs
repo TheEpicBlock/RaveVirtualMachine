@@ -1,7 +1,9 @@
 // Translates java types to llvm ones
 
-use inkwell::{context::Context, types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType}, values::IntValue};
-use vm_core::class_store::DescriptorEntry;
+use inkwell::{context::Context, types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType}, values::IntValue, AddressSpace};
+use vm_core::{class_store::DescriptorEntry, types::{LvtEntryType, PrimitiveTypes}};
+
+use crate::LocalVariableEntry;
 
 pub trait CtxJavaTypeExtension<'ctx> {
     fn java_byte(&'ctx self) -> IntType<'ctx>;
@@ -49,28 +51,41 @@ impl<'ctx> CtxJavaTypeExtension<'ctx> for Context {
 }
 
 pub trait IntoType {
-    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> Option<LlvmReturnType<'ctx>>;
-    // fn to_abi(&self, target: TargetFrontendConfig) -> AbiParam {
-    //     AbiParam::new(self.to_type(target))
-    // }
+    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> LlvmReturnType<'ctx>;
+}
+
+pub trait IntoBasicType {
+    fn to_basic_type<'ctx>(&self, ctx: &'ctx Context) -> BasicTypeEnum<'ctx>;
 }
 
 impl IntoType for DescriptorEntry {
-    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> Option<LlvmReturnType<'ctx>> {
-        // TODO ptr types shouldn't be to ints
+    fn to_type<'ctx>(&self, ctx: &'ctx Context) -> LlvmReturnType<'ctx> {
+        let primative: Result<PrimitiveTypes, _> = self.try_into();
+        primative.map_or(ctx.void_type().into(), |p| p.to_basic_type(ctx).into())
+    }
+}
+
+impl IntoBasicType for LvtEntryType {
+    fn to_basic_type<'ctx>(&self, ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
+        match &PrimitiveTypes::try_from(self) {
+            Ok(ty) => ty.to_basic_type(ctx),
+            Err(_) => todo!(),
+        }
+    }
+}
+
+impl IntoBasicType for PrimitiveTypes {
+    fn to_basic_type<'ctx>(&self, ctx: &'ctx Context) -> BasicTypeEnum<'ctx> {
         match self {
-            // DescriptorEntry::Class(_) => ctx.i8_type().ptr_type(AddressSpace::default()).into(),
-            DescriptorEntry::Byte =>        Some(BasicTypeEnum::from(ctx.java_byte()).into()),
-            DescriptorEntry::Char =>        Some(BasicTypeEnum::from(ctx.java_char()).into()),
-            DescriptorEntry::Double =>      Some(BasicTypeEnum::from(ctx.f64_type()).into()),
-            DescriptorEntry::Float =>       Some(BasicTypeEnum::from(ctx.f32_type()).into()),
-            DescriptorEntry::Int =>         Some(BasicTypeEnum::from(ctx.i32_type()).into()),
-            DescriptorEntry::Long =>        Some(BasicTypeEnum::from(ctx.i64_type()).into()),
-            DescriptorEntry::Short =>       Some(BasicTypeEnum::from(ctx.i16_type()).into()),
-            DescriptorEntry::Boolean =>     Some(BasicTypeEnum::from(ctx.bool_type()).into()),
-            DescriptorEntry::Void =>        Some(ctx.void_type().into()),
-            // DescriptorEntry::Array(_) => ctx.i8_type().ptr_type(AddressSpace::default()).into(),
-            _ => None
+            PrimitiveTypes::Byte =>        BasicTypeEnum::from(ctx.java_byte()).into(),
+            PrimitiveTypes::Char =>        BasicTypeEnum::from(ctx.java_char()).into(),
+            PrimitiveTypes::Double =>      BasicTypeEnum::from(ctx.f64_type()).into(),
+            PrimitiveTypes::Float =>       BasicTypeEnum::from(ctx.f32_type()).into(),
+            PrimitiveTypes::Int =>         BasicTypeEnum::from(ctx.i32_type()).into(),
+            PrimitiveTypes::Long =>        BasicTypeEnum::from(ctx.i64_type()).into(),
+            PrimitiveTypes::Short =>       BasicTypeEnum::from(ctx.i16_type()).into(),
+            PrimitiveTypes::Boolean =>     BasicTypeEnum::from(ctx.bool_type()).into(),
+            PrimitiveTypes::Reference =>   BasicTypeEnum::from(ctx.i8_type().ptr_type(AddressSpace::default())).into(),
         }
     }
 }

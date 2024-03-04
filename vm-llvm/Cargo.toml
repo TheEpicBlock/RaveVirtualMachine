@@ -9,3 +9,5 @@ edition = "2021"
 vm-core = { path = "../vm-core" }
 classfile-parser = { path = "../classfile-parser" }
 inkwell = { version = "0.2.0", features = ["llvm16-0"]}
+enum-map = "2.7.3"
+bytemuck = "1.14.3"
