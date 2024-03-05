@@ -8,9 +8,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use walkdir::WalkDir;
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=tests");
+    println!("cargo:rerun-if-changed=src");
     println!("cargo:rerun-if-changed=jasm/src");
     println!("cargo:rerun-if-changed=jasm/build.gradle.kts");
     println!("cargo:rerun-if-changed=jasm/gradle.properties");
@@ -24,73 +26,42 @@ fn main() {
         fs::create_dir(out_dir).unwrap();
     }
 
-    let mut tests = vec![];
-    let testdir = Path::new("tests");
-    let test_names: HashSet<_> = fs::read_dir(testdir).unwrap()
-        .map(|file| file.unwrap().path().file_stem().unwrap().to_owned())
-        .collect();
+    let testdir = Path::new("src").canonicalize().expect("Need to be able to canonicalize src dir");
+    println!("{}", testdir.display());
 
-    for test_name in test_names {
-        let java_file = testdir.join(&test_name).with_extension("java");
-        let jasm_file = testdir.join(&test_name).with_extension("jasm");
-        let rust_file = testdir.join(&test_name).with_extension("rs");
-
-        let out_dir = out_dir.join(&test_name);
-        println!("{}", out_dir.display());
-        fs::create_dir(&out_dir).unwrap();
-        
-        if java_file.exists() {
-            Command::new("javac")
-                .arg(java_file)
-                .arg("-d").arg(&out_dir)
-                .status().unwrap().exit_ok().unwrap();
-        } else if jasm_file.exists() {
-            run_jasm(&jasm_file, &out_dir)
-        } else {
-            panic!();
+    for entry in WalkDir::new(&testdir).into_iter().filter_map(|e| e.ok()) {
+        if entry.path().is_dir() {
+            continue;
         }
 
-        tests.push(Test {
-            name: test_name,
-            out_dir,
-            rust_file,
-        })
+        let create_target_dir = || {
+            let target = out_dir.join(entry.path().canonicalize().unwrap().parent().unwrap().strip_prefix(&testdir).unwrap());
+            fs::create_dir_all(&target).expect("Couldn't mkdir for output files");
+            target
+        };
+
+        
+        if entry.path().extension().is_some_and(|p| p == "jasm") {
+            let target = create_target_dir();
+            println!("Compiling jasm file from {} into {}", entry.path().display(), target.display());
+            run_jasm(entry.path(), &target);
+        } else if entry.path().extension().is_some_and(|p| p == "java") {
+            let target = create_target_dir();
+            println!("Compiling java file from {} into {}", entry.path().display(), target.display());
+            Command::new("javac")
+                .arg(entry.path())
+                .arg("-d").arg(&target)
+                .status().unwrap().exit_ok().unwrap();
+        }
     }
 
-    let mut output = String::new();
-
-    for test in tests {
-        let test_name = test.name.to_str().unwrap();
-        let rust_file = test.rust_file.canonicalize().unwrap();
-        let rust_file = rust_file.to_str().unwrap();
-
-        let output_files: Vec<_> = fs::read_dir(test.out_dir).unwrap().map(|f| f.unwrap()).collect();
-        assert_eq!(output_files.len(), 1);
-        let class_file = &output_files[0];
-        let class_file = class_file.path().canonicalize().unwrap();
-        let class_file = class_file.to_str().unwrap();
-
-        write!(output, r#"
-            #[cfg(test)]
-            mod {test_name} {{
-                #[test]
-                fn test() {{
-                    // setup_classloader comes from lib.rs
-                    run(crate::setup_classloader(include_bytes!("{class_file}")));
-                }}
-
-                include!("{rust_file}");
-            }}
-        "#).unwrap();
-    }
-
-    fs::write(out_dir.join("generated.rs"), output).unwrap();
-}
-
-struct Test {
-    name: OsString,
-    rust_file: PathBuf,
-    out_dir: PathBuf,
+    // for entry in WalkDir::new(testdir).into_iter().filter_entry(|f| f.path().extension().is_some_and(|p| p == "java")).filter_map(|e| e.ok()) {
+    //     let target = out_dir.join(entry.path().canonicalize().unwrap().strip_prefix(testdir).unwrap());
+    //     Command::new("javac")
+    //         .arg(entry.path())
+    //         .arg("-d").arg(&target)
+    //         .status().unwrap().exit_ok().unwrap();
+    // }
 }
 
 fn run_jasm(input: &Path, output_dir: &Path) {

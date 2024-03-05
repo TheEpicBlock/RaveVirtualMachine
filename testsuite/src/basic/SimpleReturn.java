@@ -1,5 +1,5 @@
 public class SimpleReturn {
-    public static int number() {
+    public static int run() {
         return 5;
     }
 }

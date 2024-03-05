@@ -1,5 +1,5 @@
 public class Addition {
-    public static add()I {
+    public static run()I {
         iconst 2
         iconst 4
         iadd

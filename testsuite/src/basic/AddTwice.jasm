@@ -1,5 +1,5 @@
-public class DoubleAddition {
-    public static add()I {
+public class AddTwice {
+    public static run()I {
         iconst 2
         iconst 4
         iadd
