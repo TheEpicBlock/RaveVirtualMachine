@@ -1,10 +1,79 @@
 use std::str::Chars;
-use classfile_parser::class_file::{MethodInfo, MethodAccessFlags};
+use classfile_parser::class_file::{ClassFile, MethodAccessFlags, MethodInfo};
+use classfile_parser::constant_pool::types::{self, MethodRef};
 use classfile_parser::constant_pool::ConstantPool;
 use bitflags::bitflags;
 use classfile_parser::attributes::CodeAttribute;
 use crate::class_store::DescriptorEntry::{Array, Boolean, Byte, Char, Double, Float, Int, Long, Short, Void};
 use crate::classfile_util::ConstantPoolExtensions;
+use crate::JitCompiler;
+
+pub struct ClassStore<J: JitCompiler> {
+    class_store: Vec<ClassData<J>>,
+}
+
+#[derive(Clone, Copy)]
+pub struct LoadedClassRef(usize);
+
+#[derive(Clone, Copy)]
+pub struct LoadedMethodRef{
+    pub class_ref: LoadedClassRef,
+    method_index: usize,
+}
+
+impl<J: JitCompiler> Default for ClassStore<J> {
+    fn default() -> Self {
+        Self { class_store: Default::default() }
+    }
+}
+
+pub trait ClassStoreIsh<J: JitCompiler> {
+    fn retrieve(&self, class: LoadedClassRef) -> &ClassData<J>;
+
+    fn retrieve_method_ref(&self, class: LoadedClassRef, method_name: &str, method_desc: &str) -> Option<LoadedMethodRef> {
+        let loaded_class = self.retrieve(class);
+        loaded_class.java_class.methods.iter().enumerate().find(|(_i, method)| {
+            let name = loaded_class.java_class.constant_pool.get_as_string(method.name_index).unwrap();
+            let desc = loaded_class.java_class.constant_pool.get_as_string(method.descriptor).unwrap();
+            return method_name == name && method_desc == desc;
+        }).map(|(i, _method)| {
+            LoadedMethodRef {
+                class_ref: class,
+                method_index: i
+            }
+        })
+    }
+}
+
+impl<J: JitCompiler> ClassStoreIsh<J> for ClassStore<J> {
+    fn retrieve(&self, class: LoadedClassRef) -> &ClassData<J> {
+        &self.class_store[class.0]
+    }
+}
+
+impl<J: JitCompiler> ClassStore<J> {
+    pub fn store(&mut self, class: ClassData<J>) -> LoadedClassRef {
+        let i = self.class_store.len();
+        self.class_store.push(class);
+        return LoadedClassRef(i);
+    }
+}
+
+pub struct ClassData<J: JitCompiler> {
+    pub java_class: ClassFile,
+    pub jit_data: J::ClassData,
+}
+
+impl<J: JitCompiler> ClassData<J> {
+    pub fn retrieve_method(&self, method: LoadedMethodRef) -> MethodData {
+        // TODO assert that the ref is for the correct class
+        return MethodData::from_info(&self.java_class.methods[method.method_index], &self.java_class.constant_pool).unwrap();
+    }
+
+    pub fn name(&self) -> &str {
+        return self.java_class.constant_pool.get_as_string(self.java_class.constant_pool.get_as::<types::Class>(self.java_class.this_class).unwrap().name_index).unwrap();
+    }
+}
 
 bitflags! {
     pub struct MethodFlags: u8 {
@@ -55,12 +124,12 @@ impl Visibility {
     }
 }
 
-pub struct MethodData<> {
-    pub name: String,
-    pub descriptor: String,
+pub struct MethodData<'class> {
+    pub name: &'class str,
+    pub descriptor: &'class str,
     pub visibility: Visibility,
     pub flags: MethodFlags,
-    pub code: CodeAttribute,
+    pub code: &'class CodeAttribute,
 }
 
 #[derive(PartialEq, Debug)]
@@ -96,15 +165,15 @@ impl DescriptorEntry {
     }
 }
 
-impl MethodData {
-    pub fn from_info(method_info: MethodInfo, constant_pool: &impl ConstantPool) -> Result<Self, ()> {
-        let name = constant_pool.get_as_string(method_info.name_index).ok_or(())?.to_string();
-        let descriptor = constant_pool.get_as_string(method_info.descriptor).ok_or(())?.to_string();
+impl<'class> MethodData<'class> {
+    pub fn from_info(method_info: &'class MethodInfo, constant_pool: &'class impl ConstantPool) -> Result<Self, ()> {
+        let name = constant_pool.get_as_string(method_info.name_index).ok_or(())?;
+        let descriptor = constant_pool.get_as_string(method_info.descriptor).ok_or(())?;
         let visibility = Visibility::from_flags(&method_info.access_flags);
         let flags = MethodFlags::from_access_flags(&method_info.access_flags);
         let mut code = Option::None;
 
-        for attribute in method_info.attributes {
+        for attribute in &method_info.attributes {
             if let classfile_parser::attributes::AttributeEntry::Code(code_attribute) = attribute {
                 code = Some(code_attribute);
             }
@@ -193,11 +262,11 @@ mod tests {
     #[test]
     fn method_descriptor() {
         let method = MethodData {
-            name: "".to_string(),
-            descriptor: "([Ljava/lang/String;DSZ)V".to_string(),
+            name: "",
+            descriptor: "([Ljava/lang/String;DSZ)V",
             visibility: Visibility::Public,
             flags: MethodFlags { bits: 0 },
-            code: CodeAttribute {
+            code: &CodeAttribute {
                 max_stack: 0,
                 max_locals: 0,
                 code: Code::from_vec(vec![]),

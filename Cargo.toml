@@ -4,7 +4,6 @@ members = [
     "classfile-parser",
     "cli",
     "vm-core",
-    "vm-cranelift",
     "vm-llvm",
     "testsuite"
 ]

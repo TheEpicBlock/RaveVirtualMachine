@@ -5,18 +5,18 @@ use std::mem;
 
 use inkwell::basic_block::BasicBlock;
 use enum_map::EnumMap;
+use inkwell::builder::Builder;
 use inkwell::passes::{PassBuilderOptions, PassManagerSubType};
 use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetData, TargetMachine};
 use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType, VoidType};
 use inkwell::values::{AnyValue, BasicValueEnum, IntValue, PointerValue};
 use type_translation::{IntoBasicType, LlvmReturnType};
 use vm_core::types::{IsReturnAddress, LvtEntryType, PrimitiveTypes};
-use vm_core::{JitCompiler, ClassShell};
-use vm_core::class_store::{DescriptorEntry, MethodData};
+use vm_core::{ClassResolver, ClassShell, JitCompiler};
+use vm_core::class_store::{DescriptorEntry, LoadedMethodRef, MethodData};
 use vm_core::classfile_util::{split_code_into_basic_blocks, ConstantPoolExtensions};
 use classfile_parser::constant_pool::{ConstantPool, types, ConstantPoolEntry};
 use classfile_parser::bytecode::Instruction;
-use inkwell::builder::{self, Builder};
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
@@ -30,9 +30,6 @@ pub struct LlvmJitCompiler {
     module: Module<'static>,
     builder: Builder<'static>,
     execution_engine: ExecutionEngine<'static>,
-
-    names_to_ids: HashMap<String, ClassId>,
-    classes: Vec<LlvmClass>
 }
 
 impl Default for LlvmJitCompiler {
@@ -46,9 +43,6 @@ impl Default for LlvmJitCompiler {
             module: m,
             builder: ctx.create_builder(),
             execution_engine: e,
-
-            names_to_ids: HashMap::new(),
-            classes: Vec::new(),
         }
     }
 }
@@ -74,41 +68,38 @@ fn run_passes_on(module: &Module, machine: &TargetData) {
 }
 
 impl JitCompiler for LlvmJitCompiler {
-    type ClassId = ClassId;
-    type MethodId = MethodId;
-    type ClassShell = LlvmClass;
+    type ClassData = ();
+    // type ClassId = ClassId;
+    // type MethodId = MethodId;
+    // type ClassShell = LlvmClass;
 
-    fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<ClassId,()> {
-        let constant_pool = &classfile.constant_pool;
-        let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
-        let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
+    // fn load(&mut self, classfile: classfile_parser::class_file::ClassFile) -> Result<ClassId,()> {
+    //     let constant_pool = &classfile.constant_pool;
+    //     let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
+    //     let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
         
-        self.classes.push(LlvmClass::try_from(classfile)?);
-        let id = ClassId(self.classes.len()-1);
-        self.names_to_ids.insert(fullname, id);
+    //     self.classes.push(LlvmClass::try_from(classfile)?);
+    //     let id = ClassId(self.classes.len()-1);
+    //     self.names_to_ids.insert(fullname, id);
 
-        return Ok(id);
-    }
+    //     return Ok(id);
+    // }
 
-    fn get(&self, id: ClassId) -> Result<&Self::ClassShell,()> {
-        Ok(&self.classes[id.0])
-    }
-
-    fn run<'cctx>(&'cctx mut self, class: ClassId, method: Self::MethodId) {
+    fn get_fn_pointer(&self, method: LoadedMethodRef, resolver: &impl ClassResolver<Self>) {
         // Retrieve some variables
-        let class = &self.classes[class.0];
-        let method = &class.methods[method.0];
-        let desc = method.data.parse_descriptors();
+        let class = resolver.retrieve(method.class_ref);
+        let method = class.retrieve_method(method);
+        let desc = method.parse_descriptors();
         
         // Setup some LLVM stuff
         let usize_type = self.context.ptr_sized_int_type(self.execution_engine.get_target_data(), None);
         let return_types: Vec<_> = desc.0.iter().map(|t| t.to_type(self.context).to_meta()).collect();
         let ty = desc.1.to_type(self.context).fn_type(&return_types, false);
-        let function = self.module.add_function(&format!("{}-{}", class.name, method.data.name), ty, None);
+        let function = self.module.add_function(&format!("{}-{}", class.name(), method.name), ty, None);
 
         // Split into basic blocks
         let entry_block = self.context.append_basic_block(function, "entry-init");
-        let basic_blocks = split_code_into_basic_blocks(&method.data.code.code).into_iter()
+        let basic_blocks = split_code_into_basic_blocks(&method.code.code).into_iter()
             .map(|block_range| {
                 (block_range.start, (block_range, self.context.append_basic_block(function, "")))
             })
@@ -144,7 +135,7 @@ impl JitCompiler for LlvmJitCompiler {
         for (block_bytes, block) in basic_blocks.values() {
             self.builder.position_at_end(*block);
             let mut ended_with_branch = false;
-            for (byte, instr) in method.data.code.code.iter(block_bytes.clone()) {
+            for (byte, instr) in method.code.code.iter(block_bytes.clone()) {
                 ended_with_branch = false;
                 match instr {
                     Instruction::IConst(x) => {
@@ -232,10 +223,14 @@ impl JitCompiler for LlvmJitCompiler {
         run_passes_on(&self.module, self.execution_engine.get_target_data());
         println!("Running {}", function.print_to_string());
         unsafe {
-            let fun: JitFunction<unsafe extern "C" fn() -> i32> = self.execution_engine.get_function(&format!("{}-{}", class.name, method.data.name)).unwrap();
+            let fun: JitFunction<unsafe extern "C" fn() -> i32> = self.execution_engine.get_function(&format!("{}-{}", class.name(), method.name)).unwrap();
             let i = fun.call();
             println!("Result is {}", i);
         }
+    }
+    
+    fn load(&mut self, class: &ClassFile) -> Result<Self::ClassData,()> {
+        Ok(())
     }
 }
 
@@ -262,65 +257,6 @@ impl<'ctx> LocalVariableEntry<'ctx> {
             
             compiler.builder.position_at_end(prev_block.unwrap());
             return ret;
-        })
-    }
-}
-
-pub struct LlvmClass {
-    constant_pool: Vec<ConstantPoolEntry>,
-    package: String,
-    name: String,
-    methods: Vec<LlvmMethod>,
-}
-
-#[derive(Clone, Copy)]
-pub struct ClassId(usize);
-
-#[derive(Clone, Copy)]
-pub struct MethodId(usize);
-
-pub struct LlvmMethod {
-    pub data: MethodData
-}
-
-impl<'a> ClassShell for LlvmClass {
-    type Method = MethodId;
-
-    fn find_main(&self) -> Option<Self::Method> {
-        let method_index = self.methods.iter().enumerate().find(|m| m.1.data.is_main())?.0;
-        Some(MethodId(method_index))
-    }
-
-    fn get_method(&self, name: &str, descriptor: &str) -> Option<Self::Method> {
-        let method_index = self.methods.iter().enumerate().find(|m| m.1.data.name == name && m.1.data.descriptor == descriptor)?.0;
-        Some(MethodId(method_index))
-    }
-}
-
-impl TryFrom<ClassFile> for LlvmClass {
-    type Error = ();
-
-    fn try_from(classfile: ClassFile) -> Result<Self, Self::Error> {
-        let constant_pool = classfile.constant_pool;
-        let this_class = constant_pool.get_as::<types::Class>(classfile.this_class).ok_or(())?;
-        let fullname = constant_pool.get_as_string(this_class.name_index).ok_or(())?.to_string();
-        let name = fullname.rsplit_once('/').unwrap_or(("", &fullname));
-        
-        let methods = classfile.methods.into_iter().map(|m| LlvmMethod::from_info(m, &constant_pool).unwrap()).collect(); // FIXME something better than unwrap pls
-
-        Ok(LlvmClass {
-            constant_pool,
-            package: name.0.to_string(),
-            name: name.1.to_string(),
-            methods
-        })
-    }
-}
-
-impl LlvmMethod {
-    fn from_info(info: MethodInfo, constant_pool: &impl ConstantPool) -> Result<Self, ()> {
-        Ok(LlvmMethod {  
-            data: MethodData::from_info(info, constant_pool)?
         })
     }
 }
