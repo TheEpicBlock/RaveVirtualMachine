@@ -2,11 +2,14 @@ pub mod classfile_util;
 pub mod class_store;
 pub mod class_loaders;
 pub mod types;
+/// Interop between rust functions and java ones
+pub mod interop;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, mem::transmute_copy};
 
 use class_store::{ClassData, ClassStore, ClassStoreIsh, LoadedMethodRef};
 use classfile_parser::class_file::ClassFile;
+use interop::JavaCompatibleFunction;
 
 pub struct VirtualMachine<L: ClassLoader, T: JitCompiler> {
     class_store: ClassStore<T>,
@@ -37,6 +40,28 @@ impl<L: ClassLoader, T: JitCompiler> VirtualMachine<L, T> {
         Ok(())
     }
 
+    pub fn get_fn_pointer<F: JavaCompatibleFunction>(&mut self, class: &str, name: &str) -> Result<F, ()> {
+        let fn_ptr = self.get_fn_pointer_raw(class, name, F::DESCRIPTOR)?;
+        
+        // Safe as long as the descriptor of the function matches its signature
+        unsafe {
+            Ok(transmute_copy(&fn_ptr))
+        }
+    }
+
+    pub fn get_fn_pointer_raw(&mut self, class: &str, name: &str, descriptor: &str) -> Result<usize, ()> {
+        // TODO encode descriptor in JavaCompatibleFunction
+        let classfile = self.class_loader.load(class);
+        let jit_data = self.jit_engine.load(&classfile)?;
+        let classref = self.class_store.store(ClassData {
+            java_class: classfile,
+            jit_data
+        });
+        let method = self.class_store.retrieve_method_ref(classref, name, descriptor).ok_or(())?;
+
+        return Ok(self.jit_engine.get_fn_pointer(method, self.get_resolver()));
+    }
+
     fn get_resolver(&self) -> &impl ClassResolver<T> {
         &self.class_store
     }
@@ -51,7 +76,7 @@ pub trait JitCompiler: Sized {
 
     fn load(&mut self, class: &ClassFile) -> Result<Self::ClassData,()>;
 
-    fn get_fn_pointer(&self, method: LoadedMethodRef, resolver: &impl ClassResolver<Self>);
+    fn get_fn_pointer(&self, method: LoadedMethodRef, resolver: &impl ClassResolver<Self>) -> usize;
 }
 
 pub trait ClassResolver<J: JitCompiler>: ClassStoreIsh<J> {

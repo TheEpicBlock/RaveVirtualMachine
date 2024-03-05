@@ -85,7 +85,7 @@ impl JitCompiler for LlvmJitCompiler {
     //     return Ok(id);
     // }
 
-    fn get_fn_pointer(&self, method: LoadedMethodRef, resolver: &impl ClassResolver<Self>) {
+    fn get_fn_pointer(&self, method: LoadedMethodRef, resolver: &impl ClassResolver<Self>) -> usize {
         // Retrieve some variables
         let class = resolver.retrieve(method.class_ref);
         let method = class.retrieve_method(method);
@@ -222,11 +222,8 @@ impl JitCompiler for LlvmJitCompiler {
 
         run_passes_on(&self.module, self.execution_engine.get_target_data());
         println!("Running {}", function.print_to_string());
-        unsafe {
-            let fun: JitFunction<unsafe extern "C" fn() -> i32> = self.execution_engine.get_function(&format!("{}-{}", class.name(), method.name)).unwrap();
-            let i = fun.call();
-            println!("Result is {}", i);
-        }
+        
+        self.execution_engine.get_function_address(&format!("{}-{}", class.name(), method.name)).unwrap()
     }
     
     fn load(&mut self, class: &ClassFile) -> Result<Self::ClassData,()> {

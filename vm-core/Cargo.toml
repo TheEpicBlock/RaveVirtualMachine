@@ -10,3 +10,4 @@ edition = "2018"
 classfile-parser = { path = "../classfile-parser" }
 bitflags = "1.2"
 enum-map = "2.7.3"
+const_format = "0.2.32"
