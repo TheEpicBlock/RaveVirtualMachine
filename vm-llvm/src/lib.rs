@@ -68,17 +68,8 @@ fn run_passes_on(module: &Module, machine: &TargetData) {
         )
         .unwrap();
 
-    let passes: &[&str] = &[
-        "instcombine",
-        "reassociate",
-        "gvn",
-        "simplifycfg",
-        // "basic-aa",
-        "mem2reg",
-    ];
-
     module
-        .run_passes(passes.join(",").as_str(), &target_machine, PassBuilderOptions::create())
+        .run_passes("default<O3>", &target_machine, PassBuilderOptions::create())
         .unwrap();
 }
 
@@ -237,7 +228,6 @@ impl JitCompiler for LlvmJitCompiler {
         // Branch to the first block from the init block
         self.builder.position_at_end(entry_block);
         self.builder.build_unconditional_branch(basic_blocks[&0].1);
-
 
         run_passes_on(&self.module, self.execution_engine.get_target_data());
         println!("Running {}", function.print_to_string());
